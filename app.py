@@ -1,7 +1,8 @@
 import sqlite3
 import os
 import av
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify
+# --- تعديل 1: إضافة send_from_directory ---
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify, send_from_directory, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from collections import defaultdict
@@ -13,8 +14,7 @@ professor_image_url_1 = "https://i.postimg.cc/pT65Tppc/1447-04-22-10-34-03-b1930
 professor_image_url_2 = "https://i.postimg.cc/3RnCZ8Wy/1447-04-22-10-34-02-7d49049c.jpg" # استبدل هذا الرابط (الصورة الشخصية)
 
 # ----------------- HTML TEMPLATES (Embedded) -----------------
-# All HTML code is now stored in Python strings.
-
+# --- تعديل 3: تم استبدال url_for('static', filename='uploads/...) بـ url_for('uploaded_file', filename=...) في كل قوالب HTML ---
 base_html = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -24,7 +24,7 @@ base_html = """
     <title>منصة الاستاذ بسام الجنابي</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+
     <style>
         /* General Styles with New Animated Background */
         body {
@@ -41,7 +41,7 @@ base_html = """
             z-index: 0;
             /* END: Animated Background */
         }
-        
+
         /* The dark overlay has been REMOVED for the light theme */
 
         .container-fluid { padding-left: 0; padding-right: 0; }
@@ -99,7 +99,7 @@ base_html = """
 
         /* Main Content (Right) */
         .main-content { margin-left: 120px; padding: 30px; width: 100%; }
-        
+
         /* Animated Gradient Header Text */
         .animated-gradient-text {
             font-size: 3rem;
@@ -125,7 +125,7 @@ base_html = """
             -webkit-text-fill-color: transparent;
             animation: animatedTextGradient 3s linear infinite;
         }
-        
+
         /* START: NEW Superhero status style */
         .superhero-status {
             font-weight: bold;
@@ -164,11 +164,11 @@ base_html = """
             border-radius: 15px;
             overflow: hidden;
         }
-        .cover-image { 
-            width: 100%; 
-            height: 100%; 
+        .cover-image {
+            width: 100%;
+            height: 100%;
             /* START: MODIFICATION 2 - Changed object-fit to contain */
-            object-fit: contain; 
+            object-fit: contain;
             /* END: MODIFICATION 2 */
         }
         .profile-picture-container { position: absolute; bottom: -75px; right: 40px; z-index: 2; }
@@ -180,15 +180,15 @@ base_html = """
             box-shadow: 0 0 15px rgba(0,0,0,0.25);
             object-fit: cover;
         }
-        .header-title-container { 
-            text-align: center; 
-            padding: 15px; 
+        .header-title-container {
+            text-align: center;
+            padding: 15px;
             background-color: rgba(255, 255, 255, 0.7); /* Added background for readability */
             backdrop-filter: blur(5px);
             border-radius: 10px;
             margin-bottom: 1rem;
         }
-        
+
         /* Card styles - semi-transparent for a "glass" effect over the background */
         .card {
             border: 1px solid rgba(0, 0, 0, 0.1);
@@ -197,7 +197,7 @@ base_html = """
             -webkit-backdrop-filter: blur(5px);
         }
         .table { color: #212529; }
-        
+
         /* ========================================================= */
         /* START: New Professional Admin Post Styles (MODIFIED)      */
         /* ========================================================= */
@@ -257,34 +257,34 @@ base_html = """
         /* Responsive Design */
         @media (max-width: 992px) {
             .page-wrapper { flex-direction: column; }
-            
+
             /* MODIFICATION: Removed 'order' properties and adjusted layout */
-            .main-content { 
-                margin-left: 0; 
-                padding: 20px; 
-                width: 100%; 
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+                width: 100%;
                 margin-top: 0;
             }
             .circular-nav {
-                height: auto; 
-                width: 100%; 
+                height: auto;
+                width: 100%;
                 position: relative; /* Changed from fixed */
-                flex-direction: row; 
+                flex-direction: row;
                 justify-content: center;
                 padding: 10px 2px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 /* MODIFICATION: Placed at bottom of its container, creating space */
                 margin-top: 0;
-                margin-bottom: 20px; 
+                margin-bottom: 20px;
                 border-radius: 15px;
             }
 
             .circular-nav ul { display: flex; flex-direction: row; width: 100%; justify-content: space-around; }
-            
+
             .circular-nav li { margin: 0 2px; }
-            .circular-nav a { 
-                width: 48px; 
-                height: 48px; 
+            .circular-nav a {
+                width: 48px;
+                height: 48px;
                 font-size: 0.6rem;
                 border-width: 1px;
                 padding: 2px;
@@ -308,7 +308,7 @@ base_html = """
                 {% if session['user_id'] %}
                     <li><a href="{{ url_for('profile', username=session['username']) }}">ملفي</a></li>
                     <li><a href="{{ url_for('archive') }}">الأرشيف</a></li>
-                    
+
                     {% if session['role'] == 'student' %}
                     <li>
                         <a href="{{ url_for('my_messages') }}">
@@ -353,18 +353,18 @@ base_html = """
                     <img src="{{ professor_image_url_2 }}" alt="الصورة الشخصية" class="profile-picture">
                 </div>
             </header>
-            
+
             <div class="header-title-container">
                 <h1 class="animated-gradient-text">منصة الاستاذ بسام الجنابي مادة الحاسوب</h1>
             </div>
-            
+
             <nav class="circular-nav d-lg-none">
                  <ul>
                     <li><a href="{{ url_for('index') }}">الرئيسية</a></li>
                     {% if session['user_id'] %}
                         <li><a href="{{ url_for('profile', username=session['username']) }}">ملفي</a></li>
                         <li><a href="{{ url_for('archive') }}">الأرشيف</a></li>
-                        
+
                         {% if session['role'] == 'student' %}
                         <li>
                             <a href="{{ url_for('my_messages') }}">
@@ -584,7 +584,7 @@ index_content_block = """
 <div class="card video-post shadow-sm mb-4">
     <div class="card-header bg-transparent border-0 pt-3">
         <div class="d-flex align-items-center">
-             <img src="{{ url_for('static', filename='uploads/' + (video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
+             <img src="{{ url_for('uploaded_file', filename=(video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
             <div class="ms-3">
                 <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
                     {% if video.role == 'admin' %}
@@ -593,7 +593,7 @@ index_content_block = """
                         <span class="text-primary">{{ video.username }}</span>
                     {% endif %}
                 </a>
-                
+
                 {# START: MODIFIED Champion Status Display #}
                 {% set user_status = champion_statuses.get(video.user_id) %}
                 {% if user_status %}
@@ -614,7 +614,7 @@ index_content_block = """
         {# START: MODIFICATION - Wrapped video for better sizing on desktop #}
         <div class="video-container mx-auto" style="max-width: 720px;">
             <video width="100%" controls class="rounded" style="background-color:#000;">
-                <source src="{{ url_for('static', filename='uploads/' + video.filepath) }}" type="video/mp4">
+                <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
         </div>
         {# END: MODIFICATION #}
@@ -627,17 +627,17 @@ index_content_block = """
             <div class="rating-display-stars" style="color: #ffc107; font-size: 1.5rem;">
                 {% set rating = video_ratings.get(video.id) %}
                 <span id="stars-display-{{ video.id }}">
-                    {% if rating and rating.total_stars > 0 %} 
-                        <i class="fas fa-star"></i> 
+                    {% if rating and rating.total_stars > 0 %}
+                        <i class="fas fa-star"></i>
                         {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
-                    {% else %} 
-                        <small class="text-muted">لم يُقيّم بعد</small> 
+                    {% else %}
+                        <small class="text-muted">لم يُقيّم بعد</small>
                     {% endif %}
                 </span>
             </div>
             {# END: MODIFIED Star Display #}
         </div>
-        
+
         {# START: MODIFIED Rating Form #}
         {% if session.role == 'admin' %}
         <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
@@ -676,7 +676,7 @@ index_content_block = """
             <ul class="list-unstyled" id="comments-list-{{ video.id }}">
                 {% for comment in video_comments[video.id]['toplevel'] %}
                 <li class="comment d-flex mb-2" id="comment-{{ comment.id }}">
-                    <img src="{{ url_for('static', filename='uploads/' + (comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
+                    <img src="{{ url_for('uploaded_file', filename=(comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
                     <div class="comment-body ms-2 p-2 rounded w-100 {% if comment.is_pinned %}bg-warning bg-opacity-25{% else %}bg-light{% endif %}">
                         <div class="d-flex justify-content-between">
                             <p class="comment-author fw-bold mb-0">
@@ -766,7 +766,7 @@ archive_content_block = """
 <div class="card video-post shadow-sm mb-4">
     <div class="card-header bg-transparent border-0 pt-3">
         <div class="d-flex align-items-center">
-             <img src="{{ url_for('static', filename='uploads/' + (video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
+             <img src="{{ url_for('uploaded_file', filename=(video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
             <div class="ms-3">
                 <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
                     {% if video.role == 'admin' %}
@@ -775,7 +775,7 @@ archive_content_block = """
                         <span class="text-primary">{{ video.username }}</span>
                     {% endif %}
                 </a>
-                
+
                 {% set user_status = champion_statuses.get(video.user_id) %}
                 {% if user_status %}
                     {% if user_status == 'بطل خارق' %}
@@ -794,7 +794,7 @@ archive_content_block = """
         {# START: MODIFICATION - Wrapped video for better sizing on desktop #}
         <div class="video-container mx-auto" style="max-width: 720px;">
             <video width="100%" controls class="rounded" style="background-color:#000;">
-                <source src="{{ url_for('static', filename='uploads/' + video.filepath) }}" type="video/mp4">
+                <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
         </div>
         {# END: MODIFICATION #}
@@ -806,11 +806,11 @@ archive_content_block = """
             <div class="rating-display-stars" style="color: #ffc107; font-size: 1.5rem;">
                 {% set rating = video_ratings.get(video.id) %}
                 <span id="stars-display-{{ video.id }}">
-                     {% if rating and rating.total_stars > 0 %} 
-                        <i class="fas fa-star"></i> 
+                     {% if rating and rating.total_stars > 0 %}
+                        <i class="fas fa-star"></i>
                         {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
-                    {% else %} 
-                        <small class="text-muted">لم يُقيّم بعد</small> 
+                    {% else %}
+                        <small class="text-muted">لم يُقيّم بعد</small>
                     {% endif %}
                 </span>
             </div>
@@ -848,7 +848,7 @@ archive_content_block = """
             <ul class="list-unstyled" id="comments-list-{{ video.id }}">
                 {% for comment in video_comments[video.id]['toplevel'] %}
                 <li class="comment d-flex mb-2" id="comment-{{ comment.id }}">
-                    <img src="{{ url_for('static', filename='uploads/' + (comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
+                    <img src="{{ url_for('uploaded_file', filename=(comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
                     <div class="comment-body ms-2 p-2 rounded w-100 {% if comment.is_pinned %}bg-warning bg-opacity-25{% else %}bg-light{% endif %}">
                         <div class="d-flex justify-content-between">
                             <p class="comment-author fw-bold mb-0">
@@ -1167,7 +1167,7 @@ reports_content_block = """
                     <p class="text-muted">لم يقم هذا الطالب برفع أي فيديوهات إثرائية بعد.</p>
                 {% endif %}
                 {# END: New section #}
-                
+
             </div>
         </div>
         {% endfor %}
@@ -1179,7 +1179,7 @@ reports_content_block = """
 profile_content_block = """
 <div class="profile-header p-4 rounded mb-4 bg-white shadow-sm" style="background-color: rgba(255, 255, 255, 0.95);">
     <div class="d-flex align-items-center">
-        <img src="{{ url_for('static', filename='uploads/' + user.profile_image) }}" alt="Profile Image" class="rounded-circle" width="150" height="150" style="border: 4px solid #0d6efd;">
+        <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}" alt="Profile Image" class="rounded-circle" width="150" height="150" style="border: 4px solid #0d6efd;">
         <div class="profile-info ms-4">
             {% if user.role == 'admin' %}
                 <h1 class="admin-username-gradient"><i class="fas fa-crown"></i> {{ user.username }}</h1>
@@ -1188,7 +1188,7 @@ profile_content_block = """
                  <h4 class="text-muted fw-light">{{ user.full_name or '' }}</h4>
             {% endif %}
             <p class="text-muted">الصف: {{ user.class_name or 'غير محدد' }} | الشعبة: {{ user.section_name or 'غير محدد' }}</p>
-            
+
             {% if user_status %}
                 {% if user_status == 'بطل خارق' %}
                     <p><span class="superhero-status fs-5"><i class="fas fa-meteor me-1"></i> {{ user_status }}</span></p>
@@ -1239,11 +1239,11 @@ profile_content_block = """
     <div class="col">
         <div class="card h-100 video-card shadow-sm">
             <video controls class="card-img-top" style="background-color:#000;">
-                <source src="{{ url_for('static', filename='uploads/' + video.filepath) }}" type="video/mp4">
+                <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ video.title }}</h5>
-                
+
                 {# START: NEW Moderation Block #}
                 {% if video.is_approved == 0 %}
                     <div class="alert alert-warning p-2 d-flex justify-content-between align-items-center mb-2">
@@ -1273,11 +1273,11 @@ profile_content_block = """
                     <div class="rating-display-stars text-warning" style="font-size: 1.5rem;">
                         {% set rating = video_ratings.get(video.id) %}
                         <span id="stars-display-{{ video.id }}">
-                            {% if rating and rating.total_stars > 0 %} 
-                                <i class="fas fa-star"></i> 
+                            {% if rating and rating.total_stars > 0 %}
+                                <i class="fas fa-star"></i>
                                 {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
-                            {% else %} 
-                                <small class="text-muted">لم يُقيّم</small> 
+                            {% else %}
+                                <small class="text-muted">لم يُقيّم</small>
                             {% endif %}
                         </span>
                     </div>
@@ -1316,7 +1316,7 @@ profile_content_block = """
                         {% set comments = video_comments.get(video.id, {}).get('toplevel', []) %}
                         {% for comment in comments %}
                         <li class="comment d-flex mb-2" id="comment-{{ comment.id }}">
-                            <img src="{{ url_for('static', filename='uploads/' + (comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
+                            <img src="{{ url_for('uploaded_file', filename=(comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
                             <div class="comment-body ms-2 p-2 rounded w-100 {% if comment.is_pinned %}bg-warning bg-opacity-25{% else %}bg-light{% endif %}">
                                 <div class="d-flex justify-content-between">
                                     <p class="comment-author fw-bold mb-0">
@@ -1406,7 +1406,7 @@ students_content_block = """
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card h-100 shadow-sm text-center">
             <div class="card-body d-flex flex-column align-items-center">
-                <img src="{{ url_for('static', filename='uploads/' + (student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle mb-3" width="100" height="100" style="border: 3px solid #0d6efd; object-fit: cover;">
+                <img src="{{ url_for('uploaded_file', filename=(student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle mb-3" width="100" height="100" style="border: 3px solid #0d6efd; object-fit: cover;">
                 <h5 class="card-title text-primary">{{ student.username }}</h5>
                 <p class="card-text text-muted">
                     {{ student.class_name or 'صف غير محدد' }} - {{ student.section_name or 'شعبة غير محددة' }}
@@ -1541,7 +1541,7 @@ conversations_content_block = """
                 <h4>اختر طالباً أو صفاً لبدء المحادثة</h4>
             </div>
         </div>
-        
+
         <div id="chat-area" class="d-none">
             <div class="chat-header">
                 <h5 id="chat-with-name" class="mb-0"></h5>
@@ -1631,7 +1631,7 @@ video_review_content_block = """
         <div class="card h-100 video-card shadow-sm">
             <div class="card-header bg-transparent border-0 pt-3">
                 <div class="d-flex align-items-center">
-                     <img src="{{ url_for('static', filename='uploads/' + (video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
+                     <img src="{{ url_for('uploaded_file', filename=(video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
                     <div class="ms-3">
                         <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
                             <span class="text-primary">{{ video.username }}</span>
@@ -1640,14 +1640,14 @@ video_review_content_block = """
                     </div>
                 </div>
             </div>
-            
+
             <video controls class="card-img-top" style="background-color:#000; border-radius: 0;">
-                <source src="{{ url_for('static', filename='uploads/' + video.filepath) }}" type="video/mp4">
+                <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
-            
+
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ video.title }}</h5>
-                
+
                 <div class="alert alert-warning p-2 d-flex justify-content-between align-items-center mb-2">
                     <span class="fw-bold"><i class="fas fa-clock me-2"></i>بانتظار الموافقة</span>
                     <div class="btn-group">
@@ -1661,7 +1661,7 @@ video_review_content_block = """
                 </div>
 
                  <small><span class="badge bg-info">{{ video.video_type }}</span> <span class="text-muted ms-2">{{ video.timestamp | strftime('%Y-%m-%d') }}</span></small>
-                
+
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <div class="like-section">
                         <button class="btn btn-link text-secondary like-btn {% if video.id in user_liked_videos %}text-danger{% endif %}" data-video-id="{{ video.id }}"><i class="fas fa-heart fa-lg"></i></button>
@@ -1670,16 +1670,16 @@ video_review_content_block = """
                     <div class="rating-display-stars text-warning" style="font-size: 1.5rem;">
                         {% set rating = video_ratings.get(video.id) %}
                         <span id="stars-display-{{ video.id }}">
-                            {% if rating and rating.total_stars > 0 %} 
-                                <i class="fas fa-star"></i> 
+                            {% if rating and rating.total_stars > 0 %}
+                                <i class="fas fa-star"></i>
                                 {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
-                            {% else %} 
-                                <small class="text-muted">لم يُقيّم</small> 
+                            {% else %}
+                                <small class="text-muted">لم يُقيّم</small>
                             {% endif %}
                         </span>
                     </div>
                 </div>
-                
+
                 <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
                      <small class="form-text text-muted">تقييم المسؤول ({{video.video_type}}):</small>
                     {% set current_rating = video_ratings.get(video.id) %}
@@ -1707,13 +1707,13 @@ video_review_content_block = """
                         {% endif %}
                     </div>
                 </form>
-                
+
                 <div class="comments-section mt-auto pt-3">
                      <ul class="list-unstyled" id="comments-list-{{ video.id }}">
                         {% set comments = video_comments.get(video.id, {}).get('toplevel', []) %}
                         {% for comment in comments %}
                         <li class="comment d-flex mb-2" id="comment-{{ comment.id }}">
-                            <img src="{{ url_for('static', filename='uploads/' + (comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
+                            <img src="{{ url_for('uploaded_file', filename=(comment.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="40" height="40">
                             <div class="comment-body ms-2 p-2 rounded w-100 {% if comment.is_pinned %}bg-warning bg-opacity-25{% else %}bg-light{% endif %}">
                                 <div class="d-flex justify-content-between">
                                     <p class="comment-author fw-bold mb-0">
@@ -1789,7 +1789,7 @@ edit_user_html = """
                             {% if messages %}{% for category, message in messages %}<div class="alert alert-{{ category }}">{{ message }}</div>{% endfor %}{% endif %}
                         {% endwith %}
                         <form method="post" enctype="multipart/form-data">
-                            
+
                             <h4>معلومات الحساب الأساسية</h4>
                             <hr>
                             <div class="row">
@@ -1797,7 +1797,7 @@ edit_user_html = """
                                     <label for="username" class="form-label">اسم المستخدم</label>
                                     <input type="text" class="form-control" id="username" name="username" value="{{ user.username or '' }}" {% if session['role'] != 'admin' %}readonly{% endif %} required>
                                 </div>
-                                
+
                                 {% if session['role'] == 'admin' %}
                                 <div class="col-md-6 mb-3">
                                     <label for="password" class="form-label">كلمة المرور الجديدة (اتركه فارغاً لعدم التغيير)</label>
@@ -1809,7 +1809,7 @@ edit_user_html = """
                             {% if user.role == 'student' %}
                             <h4 class="mt-4">المعلومات الشخصية للطالب</h4>
                             <hr>
-                            
+
                             {# START: MODIFIED - Added required class/section for new year #}
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -1838,7 +1838,7 @@ edit_user_html = """
                                 <label for="address" class="form-label">عنوان السكن <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="address" name="address" value="{{ user.address or '' }}" required>
                             </div>
-                            
+
                              <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="father_education" class="form-label">التحصيل الدراسي للأب <span class="text-danger">*</span></label>
@@ -1856,7 +1856,7 @@ edit_user_html = """
                             <div class="mb-3">
                                 <label for="profile_image" class="form-label">تغيير الصورة الشخصية (اختياري)</label>
                                 <input type="file" class="form-control" id="profile_image" name="profile_image" accept="image/*">
-                                {% if user.profile_image %}<img src="{{ url_for('static', filename='uploads/' + user.profile_image) }}" alt="Profile Image" width="100" class="mt-2 rounded">{% endif %}
+                                {% if user.profile_image %}<img src="{{ url_for('uploaded_file', filename=user.profile_image) }}" alt="Profile Image" width="100" class="mt-2 rounded">{% endif %}
                             </div>
 
                             <div class="d-grid gap-2">
@@ -1883,7 +1883,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const sectionFilter = document.getElementById('section_filter');
     const nameFilter = document.getElementById('name_filter');
     const userListGroup = document.getElementById('user-list-group');
-    
+
     const chatWelcome = document.getElementById('chat-welcome');
     const chatArea = document.getElementById('chat-area');
     const chatWithName = document.getElementById('chat-with-name');
@@ -1905,7 +1905,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(`/api/conversations/users?class_name=${className}&section_name=${sectionName}&search_name=${searchName}`);
             if (!response.ok) throw new Error('Network response was not ok');
             const users = await response.json();
-            
+
             userListGroup.innerHTML = ''; // Clear current list
 
             // Add group chat option if a class is selected
@@ -1932,7 +1932,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.dataset.name = user.username;
                 userItem.innerHTML = `
                     <div class="d-flex align-items-center">
-                        <img src="/static/uploads/${user.profile_image || 'default.png'}" class="rounded-circle me-2" width="40" height="40">
+                        <img src="${ "{{ url_for('uploaded_file', filename='FILL_IN') }}".replace('FILL_IN', user.profile_image || 'default.png') }" class="rounded-circle me-2" width="40" height="40">
                         <div>
                             <div>${user.username}</div>
                             <small class="text-muted">${user.class_name || ''} - ${user.section_name || ''}</small>
@@ -1953,7 +1953,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch(`/api/messages/${userId}`);
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
-            
+
             messagesContainer.innerHTML = ''; // Clear messages
             data.messages.forEach(msg => {
                 appendMessage(msg.sender_id, msg.content, msg.timestamp);
@@ -1967,7 +1967,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pollingInterval) clearInterval(pollingInterval);
         }
     }
-    
+
     // Helper function to format timestamp
     function formatChatTimestamp(isoString) {
         if (!isoString) return '';
@@ -1980,17 +1980,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageDiv = document.createElement('div');
         const adminId = {{ session['user_id'] }};
         messageDiv.classList.add('message', senderId == adminId ? 'sent' : 'received');
-        
+
         messageDiv.innerHTML = `
             <div class="message-content">${content}</div>
             <div class="message-timestamp" style="font-size: 0.7rem; text-align: left; margin-top: 5px; opacity: 0.8;">
                 ${formatChatTimestamp(timestamp)}
             </div>
         `;
-        
+
         messagesContainer.appendChild(messageDiv);
     }
-    
+
     // Handle submitting the message form
     messageForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -2013,7 +2013,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) throw new Error('Failed to send message');
             const result = await response.json();
-            
+
             if (result.status === 'success') {
                 if (currentConversation.type === 'user') {
                     appendMessage({{ session['user_id'] }}, content, new Date().toISOString());
@@ -2030,12 +2030,12 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('حدث خطأ أثناء إرسال الرسالة.');
         }
     });
-    
+
     // Event listener for user/group selection
     userListGroup.addEventListener('click', function(e) {
         const target = e.target.closest('.list-group-item');
         if (!target) return;
-        
+
         if (pollingInterval) {
             clearInterval(pollingInterval);
         }
@@ -2044,14 +2044,14 @@ document.addEventListener('DOMContentLoaded', function() {
         target.classList.add('active');
 
         const type = target.dataset.type;
-        
+
         if (type === 'user') {
             const userId = target.dataset.id;
             const userName = target.dataset.name;
             currentConversation = { type: 'user', id: userId, name: userName, class: null, section: null };
             chatWithName.textContent = userName;
             chatWithInfo.textContent = 'محادثة فردية';
-            
+
             fetchMessages(userId);
             pollingInterval = setInterval(() => fetchMessages(userId), 5000);
 
@@ -2063,7 +2063,7 @@ document.addEventListener('DOMContentLoaded', function() {
             chatWithInfo.textContent = 'رسالة جماعية';
             messagesContainer.innerHTML = '<div class="text-center text-muted p-3">أنت على وشك إرسال رسالة جماعية. لن يظهر سجل المحادثات هنا.</div>';
         }
-        
+
         chatWelcome.classList.add('d-none');
         chatArea.classList.remove('d-none');
         messageInput.focus();
@@ -2100,14 +2100,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function appendMessage(senderId, content, timestamp) {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', senderId == studentId ? 'sent' : 'received');
-        
+
         messageDiv.innerHTML = `
             <div class="message-content">${content}</div>
             <div class="message-timestamp" style="font-size: 0.7rem; text-align: left; margin-top: 5px; opacity: 0.8;">
                 ${formatChatTimestamp(timestamp)}
             </div>
         `;
-        
+
         messagesContainer.appendChild(messageDiv);
     }
 
@@ -2117,9 +2117,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/student/messages');
             if (!response.ok) return;
             const data = await response.json();
-            
+
             messagesContainer.innerHTML = ''; // Clear before redraw
-            
+
             // Pass the timestamp to the appendMessage function
             data.messages.forEach(msg => {
                 appendMessage(msg.sender_id, msg.content, msg.timestamp);
@@ -2128,7 +2128,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.messages.length > 0) {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
-            
+
         } catch (error) {
             console.error("Error fetching messages:", error);
         }
@@ -2164,7 +2164,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fetch messages on load and then every 5 seconds
     fetchMessages();
-    setInterval(fetchMessages, 5000); 
+    setInterval(fetchMessages, 5000);
 });
 </script>
 """
@@ -2187,10 +2187,10 @@ def render_page(template_name, **context):
     """Helper function to render pages by injecting content into the base template."""
     content_block = content_blocks.get(template_name, '')
     final_html = base_html.replace('{% block content %}{% endblock %}', content_block)
-    
+
     scripts_block = context.get("scripts_block", "")
     final_html = final_html.replace('{% block scripts %}{% endblock %}', scripts_block)
-    
+
     context['professor_image_url_1'] = professor_image_url_1
     context['professor_image_url_2'] = professor_image_url_2
 
@@ -2231,7 +2231,7 @@ def init_db():
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         print(f"Creating upload folder at: {app.config['UPLOAD_FOLDER']}")
         os.makedirs(app.config['UPLOAD_FOLDER'])
-    
+
     default_image_path = os.path.join(app.config['UPLOAD_FOLDER'], 'default.png')
     if not os.path.exists(default_image_path):
         try:
@@ -2248,7 +2248,7 @@ def init_db():
     with app.app_context():
         db = get_db()
         cursor = db.cursor()
-        
+
         # Create base tables if they don't exist
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -2260,7 +2260,7 @@ def init_db():
                 class_name TEXT,
                 section_name TEXT,
                 session_revocation_token INTEGER DEFAULT 0,
-                
+
                 full_name TEXT,
                 address TEXT,
                 phone_number TEXT,
@@ -2269,7 +2269,7 @@ def init_db():
                 is_profile_complete INTEGER DEFAULT 0,
                 is_muted INTEGER DEFAULT 0
             )''')
-        
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, filepath TEXT NOT NULL,
@@ -2337,7 +2337,7 @@ def init_db():
         # --- Schema Migration (Automatically add missing columns) ---
         cursor.execute("PRAGMA table_info(users)")
         user_columns = [column['name'] for column in cursor.fetchall()]
-        
+
         new_profile_cols = {
             'full_name': 'TEXT', 'address': 'TEXT', 'phone_number': 'TEXT',
             'father_education': 'TEXT', 'mother_education': 'TEXT',
@@ -2352,7 +2352,7 @@ def init_db():
         video_columns = [column['name'] for column in cursor.fetchall()]
         if 'video_type' not in video_columns:
             cursor.execute("ALTER TABLE videos ADD COLUMN video_type TEXT NOT NULL CHECK(video_type IN ('منهجي', 'اثرائي')) DEFAULT 'منهجي'")
-        
+
         # --- START: MODIFICATION FOR VIDEO APPROVAL ---
         if 'is_approved' not in video_columns:
             cursor.execute("ALTER TABLE videos ADD COLUMN is_approved INTEGER DEFAULT 0")
@@ -2381,7 +2381,7 @@ def init_db():
             hashed_password = generate_password_hash('admin123')
             cursor.execute("INSERT INTO users (username, password, role, is_profile_complete) VALUES (?, ?, ?, 1)",
                            ('admin', hashed_password, 'admin'))
-        
+
         db.commit()
         print("Database structure is ready.")
 
@@ -2396,7 +2396,7 @@ def get_champion_statuses():
     start_of_previous_week = start_of_week - timedelta(days=7)
     superhero_query = """
         SELECT v.user_id FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
-        WHERE v.video_type = 'اثرائي' AND 
+        WHERE v.video_type = 'اثرائي' AND
               (vr.participation + vr.memorization + vr.pronunciation + vr.use_of_aids +
                vr.filming_lighting + vr.sound_quality + vr.behavior + vr.cleanliness +
                vr.location + vr.confidence) = 10 AND date(v.timestamp) >= ?
@@ -2437,7 +2437,7 @@ def get_champion_statuses():
         stars_to_bank_for_next_week = 0
         if total_score_this_week >= 4:
             if student_id not in statuses: statuses[student_id] = 'بطل الأسبوع'
-            stars_to_bank_for_next_week = 0 
+            stars_to_bank_for_next_week = 0
         else:
             stars_to_bank_for_next_week = total_score_this_week
         db.execute("""
@@ -2464,23 +2464,24 @@ def before_request_handler():
     if 'user_id' in session and 'token' in session:
         db = get_db()
         user = db.execute('SELECT session_revocation_token, is_profile_complete, role, profile_reset_required FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-        
+
         if not user or user['session_revocation_token'] != session['token']:
             session.clear()
             flash('تم تسجيل خروجك بواسطة المسؤول.', 'warning')
             return redirect(url_for('login'))
-        
-        allowed_endpoints = ['login', 'logout', 'edit_user', 'static', 'my_messages', 'api_get_student_messages', 'api_send_student_message']
-    
+
+        # --- تعديل: إضافة uploaded_file إلى القائمة المسموحة ---
+        allowed_endpoints = ['login', 'logout', 'edit_user', 'static', 'my_messages', 'api_get_student_messages', 'api_send_student_message', 'uploaded_file']
+
         if user['role'] == 'student' and request.endpoint not in allowed_endpoints:
             if not user['is_profile_complete']:
                 flash('الرجاء إكمال ملفك الشخصي أولاً للمتابعة. الحقول إلزامية.', 'warning')
                 return redirect(url_for('edit_user', user_id=session['user_id']))
-            
+
             if user['profile_reset_required']:
                 flash('سنة دراسية جديدة! الرجاء تحديث الصف والشعبة للمتابعة.', 'info')
                 return redirect(url_for('edit_user', user_id=session['user_id']))
-    
+
     # Unread message count for students
     g.unread_count = 0
     if session.get('role') == 'student':
@@ -2523,19 +2524,19 @@ def login():
             session['username'] = user['username']
             session['role'] = user['role']
             session['token'] = user['session_revocation_token']
-            
+
             if user['role'] == 'student' and not user['is_profile_complete']:
                 flash('مرحباً بك! يرجى إكمال معلومات ملفك الشخصي للمتابعة.', 'info')
                 return redirect(url_for('edit_user', user_id=user['id']))
-            
+
             if user['role'] == 'student' and user['profile_reset_required']:
                 flash('سنة دراسية جديدة! يرجى تحديث الصف والشعبة للمتابعة.', 'info')
                 return redirect(url_for('edit_user', user_id=user['id']))
-                
+
             return redirect(url_for('index'))
         else:
             flash('اسم المستخدم أو كلمة المرور غير صحيحة!', 'danger')
-            
+
     return render_page('login')
 
 @app.route('/logout')
@@ -2554,22 +2555,22 @@ def get_common_video_data(video_ids):
         return video_ratings, video_likes, user_liked_videos, video_comments
 
     placeholders = ','.join('?' for _ in video_ids)
-    
+
     ratings_data = db.execute(f'''
-        SELECT vr.*, v.video_type 
-        FROM video_ratings vr JOIN videos v ON vr.video_id = v.id 
+        SELECT vr.*, v.video_type
+        FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
         WHERE vr.video_id IN ({placeholders})
     ''', video_ids).fetchall()
 
     for item in ratings_data:
         rating_dict = dict(item)
         if rating_dict['video_type'] == 'اثرائي':
-            total_stars = sum(rating_dict.get(key, 0) for key in 
-                              ['participation', 'memorization', 'pronunciation', 'use_of_aids', 
-                               'filming_lighting', 'sound_quality', 'behavior', 'cleanliness', 
+            total_stars = sum(rating_dict.get(key, 0) for key in
+                              ['participation', 'memorization', 'pronunciation', 'use_of_aids',
+                               'filming_lighting', 'sound_quality', 'behavior', 'cleanliness',
                                'location', 'confidence'])
         else: # منهجي
-            total_stars = sum(rating_dict.get(key, 0) for key in 
+            total_stars = sum(rating_dict.get(key, 0) for key in
                               ['participation', 'memorization', 'pronunciation', 'use_of_aids'])
         rating_dict['total_stars'] = total_stars
         video_ratings[item['video_id']] = rating_dict
@@ -2583,15 +2584,15 @@ def get_common_video_data(video_ids):
 
     comments_data = db.execute(f'''
         SELECT c.id, c.content, c.video_id, c.parent_id, c.timestamp, u.username, u.role, u.profile_image, c.user_id, c.is_pinned
-        FROM comments c JOIN users u ON c.user_id = u.id 
+        FROM comments c JOIN users u ON c.user_id = u.id
         WHERE c.video_id IN ({placeholders}) ORDER BY c.is_pinned DESC, c.timestamp ASC
     ''', video_ids).fetchall()
-    
+
     for comment in comments_data:
         video_comments[comment['video_id']]['toplevel'].append(dict(comment))
 
     return video_ratings, video_likes, user_liked_videos, video_comments
-    
+
 common_scripts_block = """
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -2610,7 +2611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }).catch(console.error);
         });
     });
-    
+
     document.querySelectorAll('.comment-form-new').forEach(form => {
         form.addEventListener('submit', function(event) {
             event.preventDefault();
@@ -2639,10 +2640,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 ratingData[checkbox.name] = checkbox.checked ? 1 : 0;
             });
 
-            fetch(`/video/${videoId}/rate`, { 
-                method: 'POST', 
-                body: JSON.stringify(ratingData), 
-                headers: { 'Content-Type': 'application/json' } 
+            fetch(`/video/${videoId}/rate`, {
+                method: 'POST',
+                body: JSON.stringify(ratingData),
+                headers: { 'Content-Type': 'application/json' }
             })
             .then(response => response.json())
             .then(data => {
@@ -2656,7 +2657,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             starsDisplay.innerHTML = `<small class="text-muted">لم يُقيّم بعد</small>`;
                         }
                     }
-                    if (data.champion_message) { 
+                    if (data.champion_message) {
                         location.reload();
                     }
                 }
@@ -2680,7 +2681,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }).catch(console.error);
             }
         }
-    
+
         const pinButton = event.target.closest('.pin-comment-btn');
         if (pinButton) {
             event.preventDefault();
@@ -2688,11 +2689,11 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`/comment/${commentId}/pin`, { method: 'POST' })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'success') { location.reload(); } 
+                if (data.status === 'success') { location.reload(); }
                 else { alert('خطأ: ' + data.message); }
             }).catch(console.error);
         }
-    
+
         const editButton = event.target.closest('.edit-comment-btn');
         if (editButton) {
             event.preventDefault();
@@ -2748,7 +2749,7 @@ document.addEventListener('DOMContentLoaded', function() {
 def index():
     if 'user_id' not in session: return redirect(url_for('login'))
     db = get_db()
-    
+
     all_classes = []
     all_sections = []
     selected_class = request.args.get('class_name', '')
@@ -2761,11 +2762,11 @@ def index():
 
     posts = db.execute('SELECT p.content, p.timestamp, u.username FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
     cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
-    
+
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.role, u.id as user_id, u.profile_image 
-        FROM videos v JOIN users u ON v.user_id = u.id 
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.role, u.id as user_id, u.profile_image
+        FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.timestamp >= ? AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
@@ -2777,26 +2778,26 @@ def index():
     if session.get('role') == 'admin' and selected_section:
         video_query += ' AND u.section_name = ?'
         params.append(selected_section)
-        
+
     if selected_video_type in ['منهجي', 'اثرائي']:
         video_query += ' AND v.video_type = ?'
         params.append(selected_video_type)
 
     video_query += ' ORDER BY v.timestamp DESC'
-    
+
     videos = db.execute(video_query, tuple(params)).fetchall()
-    
+
     video_ids = [v['id'] for v in videos]
     video_ratings, video_likes, user_liked_videos, video_comments = get_common_video_data(video_ids)
-    
-    return render_page('index', 
-                       posts=posts, 
-                       videos=videos, 
-                       video_ratings=video_ratings, 
-                       video_comments=video_comments, 
+
+    return render_page('index',
+                       posts=posts,
+                       videos=videos,
+                       video_ratings=video_ratings,
+                       video_comments=video_comments,
                        champion_statuses=get_champion_statuses(),
-                       video_likes=video_likes, 
-                       user_liked_videos=user_liked_videos, 
+                       video_likes=video_likes,
+                       user_liked_videos=user_liked_videos,
                        scripts_block=common_scripts_block,
                        all_classes=all_classes,
                        all_sections=all_sections,
@@ -2814,15 +2815,15 @@ def archive():
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     selected_video_type = request.args.get('video_type', '')
-    
+
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
 
     cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
-    
+
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
         SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.role, u.id as user_id, u.profile_image
-        FROM videos v JOIN users u ON v.user_id = u.id 
+        FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.timestamp < ? AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
@@ -2840,21 +2841,21 @@ def archive():
     if selected_video_type in ['منهجي', 'اثرائي']:
         query += ' AND v.video_type = ?'
         params.append(selected_video_type)
-    
+
     query += ' ORDER BY v.timestamp DESC'
-    
+
     archived_videos = db.execute(query, tuple(params)).fetchall()
 
     video_ids = [v['id'] for v in archived_videos]
     video_ratings, video_likes, user_liked_videos, video_comments = get_common_video_data(video_ids)
 
-    return render_page('archive', 
-                       videos=archived_videos, 
-                       video_ratings=video_ratings, 
-                       video_comments=video_comments, 
+    return render_page('archive',
+                       videos=archived_videos,
+                       video_ratings=video_ratings,
+                       video_comments=video_comments,
                        champion_statuses=get_champion_statuses(),
-                       video_likes=video_likes, 
-                       user_liked_videos=user_liked_videos, 
+                       video_likes=video_likes,
+                       user_liked_videos=user_liked_videos,
                        scripts_block=common_scripts_block,
                        all_classes=all_classes,
                        selected_class=selected_class,
@@ -2875,21 +2876,21 @@ def profile(username):
     # تعديل منطق الاستعلام عن الفيديوهات
     video_query = 'SELECT * FROM videos WHERE user_id = ?'
     params = [user['id']]
-    
+
     # إذا كان الشخص الذي يشاهد الصفحة ليس المدير وليس صاحب الحساب
     if session.get('role') != 'admin' and session.get('user_id') != user['id']:
         video_query += ' AND is_approved = 1'
-        
+
     video_query += ' ORDER BY timestamp DESC'
-    
+
     user_videos = db.execute(video_query, tuple(params)).fetchall()
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
 
     video_ids = [v['id'] for v in user_videos]
     video_ratings, video_likes, user_liked_videos, video_comments = get_common_video_data(video_ids)
-    
+
     return render_page('profile', user=user, videos=user_videos, user_status=get_champion_statuses().get(user['id']),
-                       video_ratings=video_ratings, video_likes=video_likes, user_liked_videos=user_liked_videos, 
+                       video_ratings=video_ratings, video_likes=video_likes, user_liked_videos=user_liked_videos,
                        video_comments=video_comments, scripts_block=common_scripts_block)
 
 # --- START: NEW ROUTE FOR VIDEO REVIEW ---
@@ -2900,12 +2901,12 @@ def video_review():
         return redirect(url_for('index'))
 
     db = get_db()
-    
+
     # جلب جميع الفيديوهات التي تنتظر الموافقة
     videos_to_review = db.execute('''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, 
-               u.username, u.role, u.id as user_id, u.profile_image 
-        FROM videos v JOIN users u ON v.user_id = u.id 
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved,
+               u.username, u.role, u.id as user_id, u.profile_image
+        FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.is_approved = 0
         ORDER BY v.timestamp ASC
     ''').fetchall()
@@ -2946,7 +2947,7 @@ def edit_user(user_id):
                 if existing_user:
                     flash('اسم المستخدم هذا موجود بالفعل. الرجاء اختيار اسم آخر.', 'danger')
                     return redirect(url_for('edit_user', user_id=user_id))
-            
+
             db.execute('UPDATE users SET username = ? WHERE id = ?', (new_username, user_id))
 
             new_password = request.form.get('password')
@@ -2966,29 +2967,33 @@ def edit_user(user_id):
             mother_education = request.form.get('mother_education')
 
             is_profile_complete = all([full_name, phone_number, address, father_education, mother_education, class_name, section_name])
-            
+
             profile_reset_required = 1
             if class_name and section_name:
                 profile_reset_required = 0
 
             db.execute('''
-                UPDATE users SET 
-                    full_name = ?, phone_number = ?, address = ?, class_name = ?, 
+                UPDATE users SET
+                    full_name = ?, phone_number = ?, address = ?, class_name = ?,
                     section_name = ?, father_education = ?, mother_education = ?,
                     is_profile_complete = ?, profile_reset_required = ?
                 WHERE id = ?
-            ''', (full_name, phone_number, address, class_name, section_name, 
+            ''', (full_name, phone_number, address, class_name, section_name,
                   father_education, mother_education, 1 if is_profile_complete else 0, profile_reset_required, user_id))
-        
+
         if 'profile_image' in request.files:
             file = request.files['profile_image']
             if file.filename != '' and allowed_file(file.filename, ALLOWED_EXTENSIONS_IMAGES):
                 filename = secure_filename(f"user_{user_id}_{file.filename}")
+                # --- !! تأكد من وجود مجلد الرفع قبل الحفظ !! ---
+                if not os.path.exists(app.config['UPLOAD_FOLDER']):
+                    os.makedirs(app.config['UPLOAD_FOLDER'])
+                # --- !! نهاية التأكد !! ---
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 db.execute('UPDATE users SET profile_image = ? WHERE id = ?', (filename, user_id))
-        
+
         db.commit()
-        
+
         if user_id == session.get('user_id') and new_username != session.get('username'):
              session['username'] = new_username
 
@@ -3003,7 +3008,7 @@ def edit_user(user_id):
 @app.route('/upload_video', methods=['POST'])
 def upload_video():
     if 'user_id' not in session: return redirect(url_for('login'))
-    
+
     title = request.form['title']
     video_file = request.files.get('video_file')
     video_type = request.form.get('video_type')
@@ -3013,11 +3018,15 @@ def upload_video():
         return redirect(url_for('index'))
 
     # --- بداية: التحقق من مدة الفيديو (باستخدام PyAV) ---
-    
+
     temp_filename = f"temp_upload_{session['user_id']}_{secure_filename(video_file.filename)}"
     temp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
-    
+
     try:
+        # --- !! تأكد من وجود مجلد الرفع قبل الحفظ !! ---
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+             os.makedirs(app.config['UPLOAD_FOLDER'])
+        # --- !! نهاية التأكد !! ---
         video_file.save(temp_filepath)
 
         # 2. التحقق من مدة الفيديو باستخدام PyAV
@@ -3038,27 +3047,27 @@ def upload_video():
         # 4. إذا كانت المدة مقبولة، أنشئ اسماً نهائياً وانقل الملف
         final_filename = secure_filename(f"vid_{session['user_id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{video_file.filename}")
         final_filepath = os.path.join(app.config['UPLOAD_FOLDER'], final_filename)
-        
+
         os.rename(temp_filepath, final_filepath)
 
         # --- نهاية: التحقق من مدة الفيديو ---
 
         is_approved = 1 if session.get('role') == 'admin' else 0
-        
+
         db = get_db()
-        db.execute('INSERT INTO videos (title, filepath, user_id, video_type, is_approved) VALUES (?, ?, ?, ?, ?)', 
+        db.execute('INSERT INTO videos (title, filepath, user_id, video_type, is_approved) VALUES (?, ?, ?, ?, ?)',
                    (title, final_filename, session['user_id'], video_type, is_approved))
         db.commit()
-        
+
         if is_approved == 0:
             flash('تم رفع الفيديو بنجاح (أقل من 60 ثانية)، وهو الآن بانتظار موافقة المدير.', 'success')
         else:
             flash('تم رفع الفيديو بنجاح (أقل من 60 ثانية)!', 'success')
-            
+
     finally:
         if os.path.exists(temp_filepath):
             os.remove(temp_filepath)
-            
+
     return redirect(url_for('index'))
 
 @app.route('/video/<int:video_id>/like', methods=['POST'])
@@ -3079,9 +3088,9 @@ def like_video(video_id):
 
 @app.route('/video/<int:video_id>/rate', methods=['POST'])
 def rate_video(video_id):
-    if session.get('role') != 'admin': 
+    if session.get('role') != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only.'}), 403
-    
+
     data = request.get_json()
     db = get_db()
 
@@ -3109,15 +3118,15 @@ def rate_video(video_id):
         for field in extra_fields:
             values[field] = 0
         total_stars = sum(values[f] for f in base_fields)
-        
+
     update_set_clause = ', '.join([f'{field}=excluded.{field}' for field in all_fields])
-    
+
     query = f'''
-        INSERT INTO video_ratings (video_id, admin_id, {', '.join(all_fields)}) 
-        VALUES (:{', :'.join(['video_id', 'admin_id'] + all_fields)}) 
+        INSERT INTO video_ratings (video_id, admin_id, {', '.join(all_fields)})
+        VALUES (:{', :'.join(['video_id', 'admin_id'] + all_fields)})
         ON CONFLICT(video_id) DO UPDATE SET {update_set_clause}
     '''
-    
+
     db.execute(query, values)
     db.commit()
 
@@ -3129,7 +3138,7 @@ def approve_video(video_id):
     if session.get('role') != 'admin':
         flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
         return redirect(url_for('index'))
-    
+
     db = get_db()
     db.execute('UPDATE videos SET is_approved = 1 WHERE id = ?', (video_id,))
     db.commit()
@@ -3142,11 +3151,11 @@ def delete_video(video_id):
     if session.get('role') != 'admin':
         flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
         return redirect(url_for('index'))
-    
+
     db = get_db()
     # ابحث عن الفيديو أولاً لجلب اسم الملف
     video = db.execute('SELECT filepath FROM videos WHERE id = ?', (video_id,)).fetchone()
-    
+
     if not video:
         flash('الفيديو غير موجود.', 'danger')
         return redirect(request.referrer or url_for('index'))
@@ -3156,20 +3165,20 @@ def delete_video(video_id):
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], video['filepath'])
         if os.path.exists(filepath):
             os.remove(filepath)
-        
+
         # 2. حذف جميع البيانات المتعلقة بالفيديو من قاعدة البيانات
         db.execute('DELETE FROM video_ratings WHERE video_id = ?', (video_id,))
         db.execute('DELETE FROM video_likes WHERE video_id = ?', (video_id,))
         db.execute('DELETE FROM comments WHERE video_id = ?', (video_id,))
         db.execute('DELETE FROM videos WHERE id = ?', (video_id,))
-        
+
         db.commit()
         flash('تم حذف الفيديو وجميع البيانات المتعلقة به بنجاح.', 'success')
-    
+
     except Exception as e:
         db.rollback()
         flash(f'حدث خطأ أثناء حذف الفيديو: {e}', 'danger')
-    
+
     # أعد التوجيه إلى الصفحة السابقة
     return redirect(request.referrer or url_for('index'))
 # --- END: NEW ROUTES FOR VIDEO APPROVAL ---
@@ -3178,7 +3187,7 @@ def delete_video(video_id):
 @app.route('/video/<int:video_id>/comment', methods=['POST'])
 def comment_video(video_id):
     if 'user_id' not in session: return jsonify({'status': 'error', 'message': 'Authentication required'}), 401
-    
+
     db = get_db()
     user = db.execute('SELECT is_muted FROM users WHERE id = ?', (session['user_id'],)).fetchone()
     if user and user['is_muted']:
@@ -3241,9 +3250,9 @@ def pin_comment(comment_id):
     db = get_db()
     comment = db.execute('SELECT is_pinned FROM comments WHERE id = ?', (comment_id,)).fetchone()
     if not comment: return jsonify({'status': 'error', 'message': 'Comment not found'}), 404
-    
+
     new_status = 0 if comment['is_pinned'] else 1
-    
+
     db.execute('UPDATE comments SET is_pinned = ? WHERE id = ?', (new_status, comment_id))
     db.commit()
 
@@ -3254,7 +3263,7 @@ def pin_comment(comment_id):
 def students():
     if session.get('role') != 'admin':
         return redirect(url_for('index'))
-    
+
     db = get_db()
     selected_class = request.args.get('class_name', '')
     selected_section = request.args.get('section_name', '')
@@ -3262,10 +3271,10 @@ def students():
 
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
     all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
-    
+
     query = "SELECT id, username, profile_image, class_name, section_name FROM users WHERE role = 'student'"
     params = []
-    
+
     if selected_class:
         query += " AND class_name = ?"
         params.append(selected_class)
@@ -3275,12 +3284,12 @@ def students():
     if search_name:
         query += " AND username LIKE ?"
         params.append(f'%{search_name}%')
-    
+
     query += " ORDER BY username"
-    
+
     students_data = db.execute(query, tuple(params)).fetchall()
 
-    return render_page('students', 
+    return render_page('students',
                        students=students_data,
                        all_classes=all_classes,
                        all_sections=all_sections,
@@ -3295,42 +3304,42 @@ def reports():
 
     selected_class = request.args.get('class_name', '')
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
-    
+
     student_query = "SELECT id, username, class_name, section_name FROM users WHERE role = 'student'"
     params = []
     if selected_class:
         student_query += " AND class_name = ?"
         params.append(selected_class)
     student_query += " ORDER BY username"
-    
+
     students = db.execute(student_query, tuple(params)).fetchall()
-    
+
     report_data = []
     champion_statuses = get_champion_statuses()
     start_of_week_dt = datetime.combine(date.today() - timedelta(days=date.today().weekday()), datetime.min.time())
 
     for student in students:
         student_info = dict(student)
-        
+
         videos = db.execute("""
-            SELECT v.title, v.timestamp, vr.* FROM videos v LEFT JOIN video_ratings vr ON v.id = vr.video_id 
-            WHERE v.user_id = ? AND v.video_type = 'منهجي' 
+            SELECT v.title, v.timestamp, vr.* FROM videos v LEFT JOIN video_ratings vr ON v.id = vr.video_id
+            WHERE v.user_id = ? AND v.video_type = 'منهجي'
             ORDER BY v.timestamp DESC
         """, (student['id'],)).fetchall()
         student_info['videos'] = [{'total_stars': sum((v[key] or 0) for key in ['participation', 'memorization', 'pronunciation', 'use_of_aids']), **dict(v)} for v in videos]
-        
+
         enrichment_videos = db.execute("""
             SELECT v.title, v.timestamp, vr.*
             FROM videos v LEFT JOIN video_ratings vr ON v.id = vr.video_id
             WHERE v.user_id = ? AND v.video_type = 'اثرائي'
             ORDER BY v.timestamp DESC
         """, (student['id'],)).fetchall()
-        
+
         student_info['enrichment_videos'] = []
         for v in enrichment_videos:
             video_data = dict(v)
             total_stars = sum((v[key] or 0) for key in [
-                'participation', 'memorization', 'pronunciation', 'use_of_aids', 'filming_lighting', 
+                'participation', 'memorization', 'pronunciation', 'use_of_aids', 'filming_lighting',
                 'sound_quality', 'behavior', 'cleanliness', 'location', 'confidence'
             ])
             video_data['total_stars'] = total_stars
@@ -3342,8 +3351,8 @@ def reports():
             'is_champion': champion_statuses.get(student['id']) == 'بطل الأسبوع'
         }
         report_data.append(student_info)
-        
-    return render_page('reports', 
+
+    return render_page('reports',
                        report_data=report_data,
                        all_classes=all_classes,
                        selected_class=selected_class)
@@ -3353,9 +3362,9 @@ def admin_dashboard():
     if session.get('role') != 'admin': return redirect(url_for('index'))
     db = get_db()
     students = db.execute("""
-        SELECT u.*, s.end_date, s.reason 
-        FROM users u 
-        LEFT JOIN suspensions s ON u.id = s.user_id AND s.end_date > ? 
+        SELECT u.*, s.end_date, s.reason
+        FROM users u
+        LEFT JOIN suspensions s ON u.id = s.user_id AND s.end_date > ?
         WHERE u.role = 'student'
     """, (datetime.now(),)).fetchall()
     students = [{**s, 'end_date': datetime.strptime(s['end_date'].split('.')[0], '%Y-%m-%d %H:%M:%S') if s['end_date'] else None} for s in students]
@@ -3412,13 +3421,13 @@ def suspend_student(student_id):
     if session.get('role') != 'admin': return redirect(url_for('index'))
     duration = request.form.get('duration')
     reason = request.form.get('reason', 'لا يوجد سبب.')
-    
+
     duration_map = {
-        'hour': timedelta(hours=1), 'day': timedelta(days=1), 
+        'hour': timedelta(hours=1), 'day': timedelta(days=1),
         'week': timedelta(weeks=1), 'month': timedelta(days=30),
         'year': timedelta(days=365)
     }
-    
+
     end_date = None
     if duration in duration_map:
         end_date = datetime.now() + duration_map[duration]
@@ -3433,7 +3442,7 @@ def suspend_student(student_id):
         flash(f'تم إيقاف الطالب بنجاح.', 'success')
     else:
         flash('مدة الإيقاف غير صالحة.', 'danger')
-        
+
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/lift_suspension/<int:student_id>', methods=['POST'])
@@ -3465,19 +3474,29 @@ def start_new_year():
     if session.get('role') != 'admin':
         flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
         return redirect(url_for('index'))
-    
+
     db = get_db()
     try:
         # --- START: MODIFICATION ---
-        # حذف ملفات الفيديوهات المرفوعة
+        # حذف ملفات الفيديوهات والصور المرفوعة (باستثناء default.png)
+        files_to_delete = db.execute("SELECT profile_image FROM users WHERE profile_image IS NOT NULL AND profile_image != 'default.png'").fetchall()
         videos_to_delete = db.execute("SELECT filepath FROM videos").fetchall()
+
+        for user_file in files_to_delete:
+            try:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], user_file['profile_image'])
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                print(f"Error deleting user file {user_file['profile_image']}: {e}")
+
         for video in videos_to_delete:
             try:
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], video['filepath'])
                 if os.path.exists(filepath):
                     os.remove(filepath)
             except Exception as e:
-                print(f"Error deleting file {video['filepath']}: {e}")
+                print(f"Error deleting video file {video['filepath']}: {e}")
         # --- END: MODIFICATION ---
 
         db.execute('DELETE FROM comments')
@@ -3488,19 +3507,19 @@ def start_new_year():
         db.execute('DELETE FROM star_bank')
         db.execute('DELETE FROM suspensions')
         db.execute('DELETE FROM messages')
-        
+
         db.execute("""
-            UPDATE users 
-            SET class_name = NULL, section_name = NULL, profile_reset_required = 1 
+            UPDATE users
+            SET class_name = NULL, section_name = NULL, profile_reset_required = 1, profile_image = 'default.png'
             WHERE role = 'student'
         """)
-        
+
         db.commit()
         flash('تم بدء سنة دراسية جديدة بنجاح! تم مسح جميع البيانات وتجهيز النظام للعام الجديد.', 'success')
     except Exception as e:
         db.rollback()
         flash(f'حدث خطأ أثناء بدء السنة الجديدة: {e}', 'danger')
-        
+
     return redirect(url_for('admin_dashboard'))
 
 # ----------------- CONVERSATION ROUTES (Main Pages + APIs) -----------------
@@ -3508,13 +3527,13 @@ def start_new_year():
 def conversations():
     if session.get('role') != 'admin':
         return redirect(url_for('index'))
-    
+
     db = get_db()
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
     all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
 
-    return render_page('conversations', 
-                       all_classes=all_classes, 
+    return render_page('conversations',
+                       all_classes=all_classes,
                        all_sections=all_sections,
                        scripts_block=conversations_script_block)
 
@@ -3522,17 +3541,17 @@ def conversations():
 def my_messages():
     if session.get('role') != 'student':
         return redirect(url_for('index'))
-    
+
     db = get_db()
     admin = db.execute('SELECT id FROM users WHERE role = "admin" LIMIT 1').fetchone()
     if not admin:
         flash('لا يوجد حساب مدير للتواصل معه.', 'danger')
         return redirect(url_for('index'))
-    
+
     # Mark messages from admin as read
     db.execute('UPDATE messages SET is_read = 1 WHERE receiver_id = ? AND sender_id = ?', (session['user_id'], admin['id']))
     db.commit()
-    
+
     return render_page('student_chat', admin_id=admin['id'], scripts_block=student_chat_script_block)
 
 @app.route('/api/conversations/users')
@@ -3557,9 +3576,9 @@ def api_get_users():
     if search_name:
         query += " AND username LIKE ?"
         params.append(f'%{search_name}%')
-        
+
     query += " ORDER BY username"
-    
+
     users = db.execute(query, tuple(params)).fetchall()
     return jsonify([dict(user) for user in users])
 
@@ -3567,16 +3586,16 @@ def api_get_users():
 def api_get_admin_messages(student_id):
     if session.get('role') != 'admin':
         return jsonify({"error": "Unauthorized"}), 403
-    
+
     admin_id = session['user_id']
     db = get_db()
-    
+
     messages = db.execute("""
-        SELECT * FROM messages 
+        SELECT * FROM messages
         WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
         ORDER BY timestamp ASC
     """, (admin_id, student_id, student_id, admin_id)).fetchall()
-    
+
     return jsonify({"messages": [dict(msg) for msg in messages]})
 
 @app.route('/api/messages/send', methods=['POST'])
@@ -3593,7 +3612,7 @@ def api_send_admin_message():
         return jsonify({"status": "error", "message": "Message content cannot be empty."}), 400
 
     db = get_db()
-    
+
     if msg_type == 'user':
         receiver_id = data.get('id')
         if not receiver_id:
@@ -3605,16 +3624,16 @@ def api_send_admin_message():
     elif msg_type == 'group':
         class_name = data.get('class_name')
         section_name = data.get('section_name')
-        
+
         if not class_name:
             return jsonify({"status": "error", "message": "Class name is required for group message."}), 400
-            
+
         student_query = "SELECT id FROM users WHERE role = 'student' AND class_name = ?"
         params = [class_name]
         if section_name:
             student_query += " AND section_name = ?"
             params.append(section_name)
-        
+
         students = db.execute(student_query, tuple(params)).fetchall()
         for student in students:
             db.execute(
@@ -3640,18 +3659,18 @@ def api_get_student_messages():
 
     admin_id = admin['id']
     messages = db.execute("""
-        SELECT * FROM messages 
+        SELECT * FROM messages
         WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
         ORDER BY timestamp ASC
     """, (admin_id, student_id, student_id, admin_id)).fetchall()
-    
+
     return jsonify({"messages": [dict(msg) for msg in messages]})
 
 @app.route('/api/student/messages/send', methods=['POST'])
 def api_send_student_message():
     if session.get('role') != 'student':
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
-    
+
     data = request.get_json()
     content = data.get('content')
     receiver_id = data.get('receiver_id') # Admin's ID
@@ -3668,13 +3687,38 @@ def api_send_student_message():
     db.commit()
     return jsonify({"status": "success"})
 
+# --- تعديل 2: إضافة مسار خدمة الملفات الجديد ---
+@app.route('/data/uploads/<filename>')
+def uploaded_file(filename):
+    try:
+        # Security check to prevent accessing files outside the intended folder
+        safe_path = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        if not safe_path.startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])):
+             abort(404) # Not Found if path is suspicious
+
+        # Check if file exists, otherwise serve default image
+        if not os.path.exists(safe_path):
+             default_image_path = os.path.join(app.config['UPLOAD_FOLDER'], 'default.png')
+             if os.path.exists(default_image_path):
+                 return send_from_directory(app.config['UPLOAD_FOLDER'], 'default.png')
+             else:
+                  abort(404) # Return 404 if even default is missing
+
+        # Serve the requested file
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    except FileNotFoundError:
+         abort(404)
+    except Exception as e:
+         print(f"Error serving file {filename}: {e}") # Log error for debugging
+         abort(500) # Internal Server Error
+# --- نهاية التعديل 2 ---
 
 init_db() # تأكد من تهيئة قاعدة البيانات
 if __name__ == '__main__':
     from waitress import serve
     print("Starting server on http://0.0.0.0:5000")
     # لا تستخدم app.run() في الوضع العام
-    # app.run(host='0.0.0.0', debug=True) 
+    # app.run(host='0.0.0.0', debug=True)
 
     # استخدم waitress بدلاً عنه
     serve(app, host='0.0.0.0', port=5000)
