@@ -189,6 +189,28 @@ base_html = """
             margin-bottom: 1rem;
         }
 
+        /* Ship-like framed headers (شِيب اطارات) */
+        .ship-frames { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+        .ship-frame {
+            padding: 12px 20px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,245,250,0.9));
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
+            border: 2px solid rgba(13,110,253,0.12);
+            font-weight: 700;
+            color: #0d2640;
+            min-width: 180px;
+            text-align: center;
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+        }
+        .ship-frame span { display: inline-block; direction: rtl; }
+        .ship-frame:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 14px 30px rgba(0,0,0,0.18); }
+
+        /* Variant styles */
+        .ship-frame-left { border-image: linear-gradient(45deg, #0d6efd, #20c997) 1; }
+        .ship-frame-center { border-image: linear-gradient(45deg, #6f42c1, #0d6efd) 1; background: linear-gradient(180deg,#ffffff,#eef2ff); }
+        .ship-frame-right { border-image: linear-gradient(45deg, #20c997, #f59e0b) 1; }
+
         /* Card styles - semi-transparent for a "glass" effect over the background */
         .card {
             border: 1px solid rgba(0, 0, 0, 0.1);
@@ -355,7 +377,18 @@ base_html = """
             </header>
 
             <div class="header-title-container">
-                <h1 class="animated-gradient-text">منصة الاستاذ بسام الجنابي مادة الحاسوب</h1>
+                <!-- Ship-like framed headers (شِيب اطارات) -->
+                <div class="ship-frames">
+                    <div class="ship-frame ship-frame-left">
+                        <span>منصة الاستاذ بسام الجنابي</span>
+                    </div>
+                    <div class="ship-frame ship-frame-center">
+                        <span>مادة الحاسوب</span>
+                    </div>
+                    <div class="ship-frame ship-frame-right">
+                        <span>منصة الاستاذ بسام الجنابي مادة الحاسوب</span>
+                    </div>
+                </div>
             </div>
 
             <nav class="circular-nav d-lg-none">
@@ -421,6 +454,7 @@ base_html = """
 </body>
 </html>
 """
+# ----------------- MODIFIED index_content_block -----------------
 index_content_block = """
 {% if session.role == 'admin' %}
 <div class="card mb-4 shadow-sm">
@@ -554,6 +588,34 @@ index_content_block = """
     </div>
 </div>
 
+{% if superhero_champions %}
+<div class="card shadow-sm mb-4" style="background-color: rgba(255, 253, 240, 0.9);">
+    <div class="card-body">
+        <h2 class="text-center mb-3" style="color: #ff8c00;"><i class="fas fa-meteor"></i> أبطال هذا الشهر الخارقون <i class="fas fa-meteor"></i></h2>
+        <p class="text-center text-muted">الطلاب المتميزون الذين حققوا العلامة الكاملة ({{ max_ithrai_stars }}/{{ max_ithrai_stars }}) في فيديو إثرائي هذا الشهر.</p>
+        <div class="row g-4 mt-3">
+            {% for champion in superhero_champions %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm text-center" style="border: 2px solid #ffd700; transform: scale(1); transition: all 0.3s ease;">
+                    <div class="card-body d-flex flex-column align-items-center">
+                        <a href="{{ url_for('profile', username=champion.username) }}" class="text-decoration-none">
+                            <img src="{{ url_for('uploaded_file', filename=(champion.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle mb-3" width="100" height="100" style="border: 4px solid #0d6efd; object-fit: cover;">
+                            <h5 class="card-title text-primary">{{ champion.username }}</h5>
+                        </a>
+                        <span class="superhero-status mt-2 fs-6">
+                            <i class="fas fa-meteor me-1"></i> بطل خارق
+                        </span>
+                        <p class="card-text fw-bold text-warning fs-4 mt-2 mb-0" style="color: #ffc107 !important;">
+                           <i class="fas fa-star"></i> {{ max_ithrai_stars }} / {{ max_ithrai_stars }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 <hr style="border-color: rgba(0,0,0,0.1);">
 <h2 class="text-center mb-4">آخر الأخبار والنشاطات</h2>
 
@@ -625,52 +687,56 @@ index_content_block = """
             </div>
             {# START: MODIFIED Star Display #}
             <div class="rating-display-stars" style="color: #ffc107; font-size: 1.5rem;">
-                {% set rating = video_ratings.get(video.id) %}
+                {# ================== DYNAMIC RATING MODIFICATION ================== #}
+                {% set rating_info = video_ratings.get(video.id) %}
+                {% set total_stars = rating_info.total_stars if rating_info else 0 %}
+                {% set max_stars = rating_info.max_stars if rating_info else (10 if video.video_type == 'اثرائي' else 4) %}
                 <span id="stars-display-{{ video.id }}">
-                    {% if rating and rating.total_stars > 0 %}
+                    {% if total_stars > 0 %}
                         <i class="fas fa-star"></i>
-                        {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
+                        {{ total_stars }} / {{ max_stars }}
                     {% else %}
                         <small class="text-muted">لم يُقيّم بعد</small>
                     {% endif %}
                 </span>
+                {# ================== END DYNAMIC RATING MODIFICATION ================== #}
             </div>
             {# END: MODIFIED Star Display #}
         </div>
 
-        {# START: MODIFIED Rating Form #}
+        {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
         <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
             <small class="form-text text-muted">تقييم المسؤول ({{video.video_type}}):</small>
-            {% set current_rating = video_ratings.get(video.id) %}
+            
+            {# جلب المعايير الحالية للفيديو #}
+            {% set current_video_ratings = video_ratings.get(video.id).ratings if video_ratings.get(video.id) else {} %}
+            
+            {# جلب قائمة المعايير الصحيحة بناءً على نوع الفيديو #}
+            {% set criteria_list = all_criteria.get(video.video_type, []) %}
+
             <div class="mt-2">
-                {% if video.video_type == 'اثرائي' %}
-                    {# 10-star rating form #}
-                    <div class="row">
-                        {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل'), ('filming_lighting', 'التصوير والإضاءة'), ('sound_quality', 'جودة الصوت'), ('behavior', 'السلوك'), ('cleanliness', 'النظافة'), ('location', 'موقع التصوير'), ('confidence', 'الثقة')] %}
-                        <div class="col-md-4 col-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                            </div>
+                <div class="row">
+                    {% for criterion in criteria_list %}
+                    <div class="col-md-4 col-6">
+                        <div class="form-check">
+                            {# 
+                               - نستخدم criterion.key كـ name
+                               - نتحقق إذا كان المفتاح موجوداً في تقييمات الفيديو الحالية
+                            #}
+                            <input class="form-check-input" type="checkbox" 
+                                   name="{{ criterion.key }}" 
+                                   id="{{ criterion.key }}-{{video.id}}" 
+                                   {% if current_video_ratings.get(criterion.key, 0) == 1 %}checked{% endif %}>
+                            <label class="form-check-label" for="{{ criterion.key }}-{{video.id}}">{{ criterion.name }}</label>
                         </div>
-                        {% endfor %}
                     </div>
-                {% else %}
-                    {# 4-star rating form #}
-                    <div class="d-flex justify-content-around flex-wrap">
-                        {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل')] %}
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                            <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+                    {% endfor %}
+                </div>
             </div>
         </form>
         {% endif %}
-        {# END: MODIFIED Rating Form #}
+        {# ================== END: DYNAMIC RATING FORM MODIFICATION ================== #}
 
         <div class="comments-section mt-3">
             <ul class="list-unstyled" id="comments-list-{{ video.id }}">
@@ -718,6 +784,7 @@ index_content_block = """
 {% endfor %}
 """
 
+# ----------------- MODIFIED archive_content_block -----------------
 archive_content_block = """
 <h1 class="mb-2 text-center">أرشيف الفيديوهات</h1>
 <p class="text-center text-muted">هنا تجد الفيديوهات التي تم نشرها منذ أكثر من 7 أيام.</p>
@@ -804,46 +871,49 @@ archive_content_block = """
                 <span class="likes-count" id="likes-count-{{ video.id }}">{{ video_likes.get(video.id, 0) }}</span>
             </div>
             <div class="rating-display-stars" style="color: #ffc107; font-size: 1.5rem;">
-                {% set rating = video_ratings.get(video.id) %}
+                {# ================== DYNAMIC RATING MODIFICATION ================== #}
+                {% set rating_info = video_ratings.get(video.id) %}
+                {% set total_stars = rating_info.total_stars if rating_info else 0 %}
+                {% set max_stars = rating_info.max_stars if rating_info else (10 if video.video_type == 'اثرائي' else 4) %}
                 <span id="stars-display-{{ video.id }}">
-                     {% if rating and rating.total_stars > 0 %}
+                     {% if total_stars > 0 %}
                         <i class="fas fa-star"></i>
-                        {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
+                        {{ total_stars }} / {{ max_stars }}
                     {% else %}
                         <small class="text-muted">لم يُقيّم بعد</small>
                     {% endif %}
                 </span>
+                {# ================== END DYNAMIC RATING MODIFICATION ================== #}
             </div>
         </div>
+        
+        {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
         <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
             <small class="form-text text-muted">تقييم المسؤول ({{video.video_type}}):</small>
-            {% set current_rating = video_ratings.get(video.id) %}
+            
+            {% set current_video_ratings = video_ratings.get(video.id).ratings if video_ratings.get(video.id) else {} %}
+            {% set criteria_list = all_criteria.get(video.video_type, []) %}
+
             <div class="mt-2">
-                {% if video.video_type == 'اثرائي' %}
-                    <div class="row">
-                        {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل'), ('filming_lighting', 'التصوير والإضاءة'), ('sound_quality', 'جودة الصوت'), ('behavior', 'السلوك'), ('cleanliness', 'النظافة'), ('location', 'موقع التصوير'), ('confidence', 'الثقة')] %}
-                        <div class="col-md-4 col-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                            </div>
+                <div class="row">
+                    {% for criterion in criteria_list %}
+                    <div class="col-md-4 col-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" 
+                                   name="{{ criterion.key }}" 
+                                   id="{{ criterion.key }}-{{video.id}}" 
+                                   {% if current_video_ratings.get(criterion.key, 0) == 1 %}checked{% endif %}>
+                            <label class="form-check-label" for="{{ criterion.key }}-{{video.id}}">{{ criterion.name }}</label>
                         </div>
-                        {% endfor %}
                     </div>
-                {% else %}
-                    <div class="d-flex justify-content-around flex-wrap">
-                        {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل')] %}
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                            <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+                    {% endfor %}
+                </div>
             </div>
         </form>
         {% endif %}
+        {# ================== END: DYNAMIC RATING FORM MODIFICATION ================== #}
+        
         <div class="comments-section mt-3">
             <ul class="list-unstyled" id="comments-list-{{ video.id }}">
                 {% for comment in video_comments[video.id]['toplevel'] %}
@@ -889,7 +959,7 @@ archive_content_block = """
 <p class="text-center text-muted">لا توجد فيديوهات في الأرشيف تطابق معايير البحث.</p>
 {% endfor %}
 """
-
+# ----------------- login_content_block (No Changes) -----------------
 login_content_block = """
 <div class="row justify-content-center">
     <div class="col-md-6">
@@ -913,6 +983,7 @@ login_content_block = """
 </div>
 """
 
+# ----------------- MODIFIED admin_dashboard_content_block -----------------
 admin_dashboard_content_block = """
 <h1 class="mb-4">لوحة تحكم المسؤول</h1>
 
@@ -935,6 +1006,19 @@ admin_dashboard_content_block = """
 {# END: NEW - Start New School Year Card #}
 
 <div class="row">
+    {# ================== START: NEW Card for Criteria Management ================== #}
+    <div class="col-md-12 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-info text-white"><h4><i class="fas fa-tasks me-2"></i>إدارة النظام</h4></div>
+            <div class="card-body">
+                <h5 class="card-title">إدارة معايير التقييم</h5>
+                <p class="card-text">إضافة أو حذف المعايير المستخدمة لتقييم الفيديوهات (مثل: الحفظ، النطق، ...).</p>
+                <a href="{{ url_for('admin_criteria') }}" class="btn btn-info">الانتقال إلى صفحة المعايير</a>
+            </div>
+        </div>
+    </div>
+    {# ================== END: NEW Card for Criteria Management ================== #}
+
     <div class="col-md-6 mb-4">
         <div class="card h-100 shadow-sm">
             <div class="card-header"><h4>إنشاء حساب طالب</h4></div>
@@ -1026,6 +1110,7 @@ admin_dashboard_content_block = """
 </div>
 """
 
+# ----------------- MODIFIED reports_content_block -----------------
 reports_content_block = """
 <div class="container mt-4">
     <h1 class="mb-4 text-center">تقرير نشاط الطلاب</h1>
@@ -1085,31 +1170,43 @@ reports_content_block = """
                         </div>
                     </div>
                 </div>
+                
+                {# ================== START: DYNAMIC REPORTS MODIFICATION ================== #}
                 <hr>
                 <h5 class="card-title mt-4">الفيديوهات المنهجية والتقييمات</h5>
-                {% if student.videos %}
+                {# جلب معايير المنهجي #}
+                {% set manhaji_criteria = all_criteria.get('منهجي', []) %}
+                {% if student.videos_manhaji %}
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover small">
                             <thead>
                                 <tr>
-                                    <th>عنوان الفيديو</th><th>تاريخ الرفع</th>
-                                    <th title="المشاركة"><i class="fas fa-users"></i></th>
-                                    <th title="الحفظ"><i class="fas fa-brain"></i></th>
-                                    <th title="اللفظ"><i class="fas fa-microphone-alt"></i></th>
-                                    <th title="الوسيلة"><i class="fas fa-paint-brush"></i></th>
+                                    <th>عنوان الفيديو</th>
+                                    <th>تاريخ الرفع</th>
+                                    {# عرض أسماء المعايير بشكل ديناميكي #}
+                                    {% for criterion in manhaji_criteria %}
+                                        <th title="{{ criterion.name }}"><i class="fas fa-star"></i> {{ criterion.name }}</th>
+                                    {% endfor %}
                                     <th>مجموع <i class="fas fa-star text-warning"></i></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for video in student.videos %}
+                                {% for video in student.videos_manhaji %}
                                 <tr>
                                     <td>{{ video.title }}</td>
                                     <td>{{ video.timestamp | strftime('%Y-%m-%d') }}</td>
-                                    <td>{% if video.participation == 1 %}<i class="fas fa-check-circle text-success fa-lg"></i>{% else %}<i class="fas fa-times-circle text-danger fa-lg"></i>{% endif %}</td>
-                                    <td>{% if video.memorization == 1 %}<i class="fas fa-check-circle text-success fa-lg"></i>{% else %}<i class="fas fa-times-circle text-danger fa-lg"></i>{% endif %}</td>
-                                    <td>{% if video.pronunciation == 1 %}<i class="fas fa-check-circle text-success fa-lg"></i>{% else %}<i class="fas fa-times-circle text-danger fa-lg"></i>{% endif %}</td>
-                                    <td>{% if video.use_of_aids == 1 %}<i class="fas fa-check-circle text-success fa-lg"></i>{% else %}<i class="fas fa-times-circle text-danger fa-lg"></i>{% endif %}</td>
-                                    <td class="fw-bold">{{ video.total_stars }}</td>
+                                    {# عرض التقييم (صح/خطأ) لكل معيار #}
+                                    {% set video_ratings = video.ratings %}
+                                    {% for criterion in manhaji_criteria %}
+                                        <td>
+                                            {% if video_ratings.get(criterion.key, 0) == 1 %}
+                                                <i class="fas fa-check-circle text-success fa-lg"></i>
+                                            {% else %}
+                                                <i class="fas fa-times-circle text-danger fa-lg"></i>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    <td class="fw-bold">{{ video.total_stars }} / {{ manhaji_criteria | length }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -1119,45 +1216,41 @@ reports_content_block = """
                     <p class="text-muted">لم يقم هذا الطالب برفع أي فيديوهات منهجية بعد.</p>
                 {% endif %}
 
-                {# NEW: Enrichment videos report section #}
                 <hr>
                 <h5 class="card-title mt-4">تقرير الفيديوهات الإثرائية</h5>
-                {% if student.enrichment_videos %}
+                {# جلب معايير الاثرائي #}
+                {% set ithrai_criteria = all_criteria.get('اثرائي', []) %}
+                {% if student.videos_ithrai %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover small">
                             <thead>
                                 <tr>
                                     <th>عنوان الفيديو</th>
                                     <th>التاريخ</th>
-                                    <th title="المشاركة"><i class="fas fa-users"></i></th>
-                                    <th title="الحفظ"><i class="fas fa-brain"></i></th>
-                                    <th title="النطق"><i class="fas fa-microphone-alt"></i></th>
-                                    <th title="الوسائل"><i class="fas fa-paint-brush"></i></th>
-                                    <th title="التصوير والإضاءة"><i class="fas fa-camera"></i></th>
-                                    <th title="جودة الصوت"><i class="fas fa-volume-up"></i></th>
-                                    <th title="السلوك"><i class="fas fa-user-check"></i></th>
-                                    <th title="النظافة"><i class="fas fa-soap"></i></th>
-                                    <th title="موقع التصوير"><i class="fas fa-map-marker-alt"></i></th>
-                                    <th title="الثقة"><i class="fas fa-award"></i></th>
+                                    {# عرض أسماء المعايير بشكل ديناميكي #}
+                                    {% for criterion in ithrai_criteria %}
+                                        <th title="{{ criterion.name }}"><i class="fas fa-star"></i> {{ criterion.name }}</th>
+                                    {% endfor %}
                                     <th>المجموع <i class="fas fa-star text-warning"></i></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for video in student.enrichment_videos %}
+                                {% for video in student.videos_ithrai %}
                                 <tr>
                                     <td>{{ video.title }}</td>
                                     <td>{{ video.timestamp | strftime('%Y-%m-%d') }}</td>
-                                    <td>{% if video.participation == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.memorization == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.pronunciation == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.use_of_aids == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.filming_lighting == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.sound_quality == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.behavior == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.cleanliness == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.location == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td>{% if video.confidence == 1 %}<i class="fas fa-check text-success"></i>{% else %}<i class="fas fa-times text-danger"></i>{% endif %}</td>
-                                    <td class="fw-bold">{{ video.total_stars }} / 10</td>
+                                    {# عرض التقييم (صح/خطأ) لكل معيار #}
+                                    {% set video_ratings = video.ratings %}
+                                    {% for criterion in ithrai_criteria %}
+                                        <td>
+                                            {% if video_ratings.get(criterion.key, 0) == 1 %}
+                                                <i class="fas fa-check text-success"></i>
+                                            {% else %}
+                                                <i class="fas fa-times text-danger"></i>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    <td class="fw-bold">{{ video.total_stars }} / {{ ithrai_criteria | length }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -1166,7 +1259,7 @@ reports_content_block = """
                 {% else %}
                     <p class="text-muted">لم يقم هذا الطالب برفع أي فيديوهات إثرائية بعد.</p>
                 {% endif %}
-                {# END: New section #}
+                {# ================== END: DYNAMIC REPORTS MODIFICATION ================== #}
 
             </div>
         </div>
@@ -1176,6 +1269,8 @@ reports_content_block = """
     {% endif %}
 </div>
 """
+
+# ----------------- MODIFIED profile_content_block -----------------
 profile_content_block = """
 <div class="profile-header p-4 rounded mb-4 bg-white shadow-sm" style="background-color: rgba(255, 255, 255, 0.95);">
     <div class="d-flex align-items-center">
@@ -1271,46 +1366,49 @@ profile_content_block = """
                         <span class="likes-count" id="likes-count-{{ video.id }}">{{ video_likes.get(video.id, 0) }}</span>
                     </div>
                     <div class="rating-display-stars text-warning" style="font-size: 1.5rem;">
-                        {% set rating = video_ratings.get(video.id) %}
+                        {# ================== DYNAMIC RATING MODIFICATION ================== #}
+                        {% set rating_info = video_ratings.get(video.id) %}
+                        {% set total_stars = rating_info.total_stars if rating_info else 0 %}
+                        {% set max_stars = rating_info.max_stars if rating_info else (10 if video.video_type == 'اثرائي' else 4) %}
                         <span id="stars-display-{{ video.id }}">
-                            {% if rating and rating.total_stars > 0 %}
+                            {% if total_stars > 0 %}
                                 <i class="fas fa-star"></i>
-                                {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
+                                {{ total_stars }} / {{ max_stars }}
                             {% else %}
                                 <small class="text-muted">لم يُقيّم</small>
                             {% endif %}
                         </span>
+                        {# ================== END DYNAMIC RATING MODIFICATION ================== #}
                     </div>
                 </div>
+                
+                {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
                 {% if session.role == 'admin' %}
                 <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
                      <small class="form-text text-muted">تقييم المسؤول ({{video.video_type}}):</small>
-                    {% set current_rating = video_ratings.get(video.id) %}
+                    
+                    {% set current_video_ratings = video_ratings.get(video.id).ratings if video_ratings.get(video.id) else {} %}
+                    {% set criteria_list = all_criteria.get(video.video_type, []) %}
+
                      <div class="mt-2">
-                        {% if video.video_type == 'اثرائي' %}
-                            <div class="row">
-                                {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل'), ('filming_lighting', 'التصوير والإضاءة'), ('sound_quality', 'جودة الصوت'), ('behavior', 'السلوك'), ('cleanliness', 'النظافة'), ('location', 'موقع التصوير'), ('confidence', 'الثقة')] %}
-                                <div class="col-md-6 col-12">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                        <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                                    </div>
+                        <div class="row">
+                            {% for criterion in criteria_list %}
+                            <div class="col-md-6 col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="{{ criterion.key }}" 
+                                           id="{{ criterion.key }}-{{video.id}}" 
+                                           {% if current_video_ratings.get(criterion.key, 0) == 1 %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ criterion.key }}-{{video.id}}">{{ criterion.name }}</label>
                                 </div>
-                                {% endfor %}
                             </div>
-                        {% else %}
-                            <div class="d-flex justify-content-around flex-wrap">
-                                {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل')] %}
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                    <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
                 </form>
                 {% endif %}
+                {# ================== END: DYNAMIC RATING FORM MODIFICATION ================== #}
+                
                 <div class="comments-section mt-auto pt-3">
                      <ul class="list-unstyled" id="comments-list-{{ video.id }}">
                         {% set comments = video_comments.get(video.id, {}).get('toplevel', []) %}
@@ -1360,6 +1458,7 @@ profile_content_block = """
 </div>
 """
 
+# ----------------- students_content_block (No Changes) -----------------
 students_content_block = """
 <h1 class="mb-4 text-center">عرض الطلاب</h1>
 
@@ -1422,7 +1521,7 @@ students_content_block = """
     {% endfor %}
 </div>
 """
-
+# ----------------- conversations_content_block (No Changes) -----------------
 conversations_content_block = """
 <style>
     .chat-container {
@@ -1560,6 +1659,7 @@ conversations_content_block = """
 </div>
 """
 
+# ----------------- student_chat_content_block (No Changes) -----------------
 student_chat_content_block = """
 <style>
     .student-chat-window {
@@ -1620,7 +1720,7 @@ student_chat_content_block = """
 </div>
 """
 
-# --- START: NEW TEMPLATE FOR VIDEO REVIEW ---
+# ----------------- MODIFIED video_review_content_block -----------------
 video_review_content_block = """
 <h1 class="mb-4 text-center">مراجعة الفيديوهات</h1>
 <p class="text-center text-muted">هنا تظهر جميع الفيديوهات التي بانتظار الموافقة.</p>
@@ -1668,45 +1768,46 @@ video_review_content_block = """
                         <span class="likes-count" id="likes-count-{{ video.id }}">{{ video_likes.get(video.id, 0) }}</span>
                     </div>
                     <div class="rating-display-stars text-warning" style="font-size: 1.5rem;">
-                        {% set rating = video_ratings.get(video.id) %}
+                        {# ================== DYNAMIC RATING MODIFICATION ================== #}
+                        {% set rating_info = video_ratings.get(video.id) %}
+                        {% set total_stars = rating_info.total_stars if rating_info else 0 %}
+                        {% set max_stars = rating_info.max_stars if rating_info else (10 if video.video_type == 'اثرائي' else 4) %}
                         <span id="stars-display-{{ video.id }}">
-                            {% if rating and rating.total_stars > 0 %}
+                            {% if total_stars > 0 %}
                                 <i class="fas fa-star"></i>
-                                {{ rating.total_stars }} / {% if video.video_type == 'اثرائي' %}10{% else %}4{% endif %}
+                                {{ total_stars }} / {{ max_stars }}
                             {% else %}
                                 <small class="text-muted">لم يُقيّم</small>
                             {% endif %}
                         </span>
+                        {# ================== END DYNAMIC RATING MODIFICATION ================== #}
                     </div>
                 </div>
 
+                {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
                 <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
                      <small class="form-text text-muted">تقييم المسؤول ({{video.video_type}}):</small>
-                    {% set current_rating = video_ratings.get(video.id) %}
+                    
+                    {% set current_video_ratings = video_ratings.get(video.id).ratings if video_ratings.get(video.id) else {} %}
+                    {% set criteria_list = all_criteria.get(video.video_type, []) %}
+
                      <div class="mt-2">
-                        {% if video.video_type == 'اثرائي' %}
-                            <div class="row">
-                                {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل'), ('filming_lighting', 'التصوير والإضاءة'), ('sound_quality', 'جودة الصوت'), ('behavior', 'السلوك'), ('cleanliness', 'النظافة'), ('location', 'موقع التصوير'), ('confidence', 'الثقة')] %}
-                                <div class="col-md-6 col-12">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                        <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                                    </div>
+                        <div class="row">
+                            {% for criterion in criteria_list %}
+                            <div class="col-md-6 col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="{{ criterion.key }}" 
+                                           id="{{ criterion.key }}-{{video.id}}" 
+                                           {% if current_video_ratings.get(criterion.key, 0) == 1 %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ criterion.key }}-{{video.id}}">{{ criterion.name }}</label>
                                 </div>
-                                {% endfor %}
                             </div>
-                        {% else %}
-                            <div class="d-flex justify-content-around flex-wrap">
-                                {% for key, label in [('participation', 'المشاركة'), ('memorization', 'الحفظ'), ('pronunciation', 'النطق'), ('use_of_aids', 'الوسائل')] %}
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="{{ key }}" id="{{ key }}-{{video.id}}" {% if current_rating and current_rating[key] %}checked{% endif %}>
-                                    <label class="form-check-label" for="{{ key }}-{{video.id}}">{{ label }}</label>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
                 </form>
+                {# ================== END: DYNAMIC RATING FORM MODIFICATION ================== #}
 
                 <div class="comments-section mt-auto pt-3">
                      <ul class="list-unstyled" id="comments-list-{{ video.id }}">
@@ -1758,7 +1859,8 @@ video_review_content_block = """
     {% endfor %}
 </div>
 """
-# --- END: NEW TEMPLATE ---
+
+# ----------------- edit_user_html (No Changes) -----------------
 edit_user_html = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -1875,7 +1977,7 @@ edit_user_html = """
 </html>
 """
 
-# START: MODIFIED CODE BLOCK FOR ADMIN CHAT
+# ----------------- conversations_script_block (No Changes) -----------------
 conversations_script_block = """
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -2077,9 +2179,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 """
-# END: MODIFIED CODE BLOCK
 
-# START: MODIFIED CODE BLOCK FOR STUDENT CHAT
+# ----------------- student_chat_script_block (No Changes) -----------------
 student_chat_script_block = """
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -2168,8 +2269,88 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 """
-# END: MODIFIED CODE BLOCK
+# ----------------- NEW: admin_criteria_content_block -----------------
+# (This is the new template for the criteria management page)
+admin_criteria_content_block = """
+<h1 class="mb-4">إدارة معايير التقييم</h1>
+<p>هنا يمكنك إضافة أو حذف المعايير التي تظهر للمدير عند تقييم الفيديوهات.</p>
 
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h4><i class="fas fa-plus-circle me-2"></i>إضافة معيار جديد</h4></div>
+            <div class="card-body">
+                <form action="{{ url_for('add_criterion') }}" method="post">
+                    <div class="mb-3">
+                        <label for="criterion_name" class="form-label">اسم المعيار (ما يراه المدير)</label>
+                        <input type="text" name="name" class="form-control" id="criterion_name" placeholder="مثال: الإبداع" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="criterion_key" class="form-label">المفتاح البرمجي (انجليزي بدون مسافات)</label>
+                        <input type="text" name="key" class="form-control" id="criterion_key" placeholder="مثال: creativity" required>
+                        <small class="form-text text-muted">يجب أن يكون فريداً (لا يتكرر).</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="video_type" class="form-label">نوع الفيديو</label>
+                        <select name="video_type" id="video_type" class="form-select" required>
+                            <option value="" disabled selected>اختر النوع...</option>
+                            <option value="منهجي">منهجي</option>
+                            <option value="اثرائي">اثرائي</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">إضافة المعيار</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header"><h4><i class="fas fa-list-ul me-2"></i>المعايير الحالية</h4></div>
+            <div class="card-body">
+                
+                <h5 class="text-primary">معايير "منهجي" (المجموع: {{ criteria.منهجي | length }})</h5>
+                <ul class="list-group mb-4">
+                    {% for c in criteria.منهجي %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ c.name }}</strong>
+                            <br><small class="text-muted">المفتاح: {{ c.key }}</small>
+                        </div>
+                        <form action="{{ url_for('delete_criterion', criterion_id=c.id) }}" method="post" onsubmit="return confirm('هل أنت متأكد من حذف هذا المعيار؟');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">لا توجد معايير حالياً.</li>
+                    {% endfor %}
+                </ul>
+
+                <h5 class="text-info">معايير "اثرائي" (المجموع: {{ criteria.اثرائي | length }})</h5>
+                <ul class="list-group">
+                    {% for c in criteria.اثرائي %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ c.name }}</strong>
+                            <br><small class="text-muted">المفتاح: {{ c.key }}</small>
+                        </div>
+                        <form action="{{ url_for('delete_criterion', criterion_id=c.id) }}" method="post" onsubmit="return confirm('هل أنت متأكد من حذف هذا المعيار؟');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">لا توجد معايير حالياً.</li>
+                    {% endfor %}
+                </ul>
+
+            </div>
+        </div>
+    </div>
+</div>
+"""
+
+
+# ----------------- UPDATED content_blocks dictionary -----------------
 content_blocks = {
     'index': index_content_block,
     'archive': archive_content_block,
@@ -2180,9 +2361,9 @@ content_blocks = {
     'students': students_content_block,
     'conversations': conversations_content_block,
     'student_chat': student_chat_content_block,
-    'video_review': video_review_content_block, # <--- السطر الجديد المضاف
+    'video_review': video_review_content_block,
+    'admin_criteria': admin_criteria_content_block # <--- السطر الجديد المضاف
 }
-
 def render_page(template_name, **context):
     """Helper function to render pages by injecting content into the base template."""
     content_block = content_blocks.get(template_name, '')
@@ -2195,6 +2376,7 @@ def render_page(template_name, **context):
     context['professor_image_url_2'] = professor_image_url_2
 
     return render_template_string(final_html, **context)
+
 # ----------------- CONFIGURATION -----------------
 app = Flask(__name__)
 PERSISTENT_DATA_PATH = '/data'
@@ -2210,14 +2392,13 @@ app.config['DATABASE'] = os.path.join(PERSISTENT_DATA_PATH, 'school_platform.db'
 ALLOWED_EXTENSIONS_IMAGES = {'png', 'jpg', 'jpeg', 'gif'}
 ALLOWED_EXTENSIONS_VIDEOS = {'mp4', 'mov', 'avi'}
 VIDEO_ARCHIVE_DAYS = 7
-
-
 # ----------------- DATABASE SETUP -----------------
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(app.config['DATABASE'])
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA foreign_keys = ON") # تفعيل مفاتيح العلاقات الخارجية
     return db
 
 @app.teardown_appcontext
@@ -2274,53 +2455,72 @@ def init_db():
             CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, filepath TEXT NOT NULL,
                 user_id INTEGER NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )''')
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
+            )''') # إضافة ON DELETE CASCADE
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS posts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT NOT NULL, user_id INTEGER NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id)
-            )''')
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )''') # إضافة ON DELETE CASCADE
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS comments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT NOT NULL, user_id INTEGER NOT NULL,
                 video_id INTEGER NOT NULL, parent_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id), FOREIGN KEY (video_id) REFERENCES videos (id),
-                FOREIGN KEY (parent_id) REFERENCES comments (id)
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE, 
+                FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES comments (id) ON DELETE CASCADE
+            )''') # إضافة ON DELETE CASCADE
+
+        # ================== START: DYNAMIC RATING TABLES ==================
+        # تم حذف جدول video_ratings القديم
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS rating_criteria (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                key TEXT UNIQUE NOT NULL,
+                video_type TEXT NOT NULL CHECK(video_type IN ('منهجي', 'اثرائي'))
             )''')
 
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS video_ratings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, video_id INTEGER NOT NULL, admin_id INTEGER NOT NULL,
-                participation INTEGER DEFAULT 0, memorization INTEGER DEFAULT 0,
-                pronunciation INTEGER DEFAULT 0, use_of_aids INTEGER DEFAULT 0,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (video_id) REFERENCES videos (id),
-                FOREIGN KEY (admin_id) REFERENCES users (id), UNIQUE(video_id)
+            CREATE TABLE IF NOT EXISTS dynamic_video_ratings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_id INTEGER NOT NULL,
+                criterion_id INTEGER NOT NULL,
+                is_awarded INTEGER DEFAULT 0,
+                admin_id INTEGER NOT NULL,
+                FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE,
+                FOREIGN KEY (criterion_id) REFERENCES rating_criteria (id) ON DELETE CASCADE,
+                FOREIGN KEY (admin_id) REFERENCES users (id) ON DELETE CASCADE,
+                UNIQUE(video_id, criterion_id)
             )''')
+        # ================== END: DYNAMIC RATING TABLES ==================
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS video_likes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, video_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (video_id) REFERENCES videos (id),
-                FOREIGN KEY (user_id) REFERENCES users (id), UNIQUE(video_id, user_id)
-            )''')
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE, 
+                UNIQUE(video_id, user_id)
+            )''') # إضافة ON DELETE CASCADE
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS suspensions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
                 end_date DATETIME NOT NULL, reason TEXT,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )''')
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )''') # إضافة ON DELETE CASCADE
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS star_bank (
                 user_id INTEGER PRIMARY KEY,
                 banked_stars INTEGER NOT NULL DEFAULT 0,
                 last_updated_week_start_date DATE NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )''')
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )''') # إضافة ON DELETE CASCADE
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS messages (
@@ -2330,9 +2530,37 @@ def init_db():
                 content TEXT NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 is_read INTEGER DEFAULT 0,
-                FOREIGN KEY (sender_id) REFERENCES users (id),
-                FOREIGN KEY (receiver_id) REFERENCES users (id)
-            )''')
+                FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+                FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+            )''') # إضافة ON DELETE CASCADE
+        
+        # --- إضافة المعايير الافتراضية (القديمة) إلى الجدول الجديد ---
+        cursor.execute("SELECT COUNT(id) FROM rating_criteria")
+        if cursor.fetchone()[0] == 0:
+            print("لم يتم العثور على معايير، سيتم إضافة المعايير الافتراضية...")
+            # ملاحظة: تم تغيير المفاتيح لتكون فريدة
+            default_criteria = [
+                # معايير المنهجي
+                ('المشاركة', 'participation_m', 'منهجي'),
+                ('الحفظ', 'memorization_m', 'منهجي'),
+                ('النطق', 'pronunciation_m', 'منهجي'),
+                ('الوسائل', 'use_of_aids_m', 'منهجي'),
+                
+                # معايير الاثرائي
+                ('المشاركة', 'participation_e', 'اثرائي'),
+                ('الحفظ', 'memorization_e', 'اثرائي'),
+                ('النطق', 'pronunciation_e', 'اثرائي'),
+                ('الوسائل', 'use_of_aids_e', 'اثرائي'),
+                ('التصوير والإضاءة', 'filming_lighting_e', 'اثرائي'),
+                ('جودة الصوت', 'sound_quality_e', 'اثرائي'),
+                ('السلوك', 'behavior_e', 'اثرائي'),
+                ('النظافة', 'cleanliness_e', 'اثرائي'),
+                ('موقع التصوير', 'location_e', 'اثرائي'),
+                ('الثقة', 'confidence_e', 'اثرائي')
+            ]
+            cursor.executemany("INSERT INTO rating_criteria (name, key, video_type) VALUES (?, ?, ?)", default_criteria)
+            print(f"تم إضافة {len(default_criteria)} معيار افتراضي بنجاح.")
+
 
         # --- Schema Migration (Automatically add missing columns) ---
         cursor.execute("PRAGMA table_info(users)")
@@ -2363,16 +2591,7 @@ def init_db():
         if 'is_pinned' not in comment_columns:
             cursor.execute("ALTER TABLE comments ADD COLUMN is_pinned INTEGER DEFAULT 0")
 
-        cursor.execute("PRAGMA table_info(video_ratings)")
-        rating_columns = [c['name'] for c in cursor.fetchall()]
-        new_rating_cols = {
-            'filming_lighting': 'INTEGER DEFAULT 0', 'sound_quality': 'INTEGER DEFAULT 0',
-            'behavior': 'INTEGER DEFAULT 0', 'cleanliness': 'INTEGER DEFAULT 0',
-            'location': 'INTEGER DEFAULT 0', 'confidence': 'INTEGER DEFAULT 0'
-        }
-        for col, col_type in new_rating_cols.items():
-            if col not in rating_columns:
-                cursor.execute(f"ALTER TABLE video_ratings ADD COLUMN {col} {col_type}")
+        # --- تم حذف ترحيل جدول video_ratings القديم ---
 
         # --- End Schema Migration ---
 
@@ -2386,67 +2605,137 @@ def init_db():
         print("Database structure is ready.")
 
 # ----------------- HELPER FUNCTIONS -----------------
+
+# ================== START: MODIFIED get_champion_statuses ==================
 def get_champion_statuses():
     db = get_db()
     today = date.today()
     statuses = {}
-    start_of_month = today.replace(day=1)
-    days_since_saturday = (today.weekday() + 2) % 7
-    start_of_week = today - timedelta(days=days_since_saturday)
-    start_of_previous_week = start_of_week - timedelta(days=7)
-    superhero_query = """
-        SELECT v.user_id FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
-        WHERE v.video_type = 'اثرائي' AND
-              (vr.participation + vr.memorization + vr.pronunciation + vr.use_of_aids +
-               vr.filming_lighting + vr.sound_quality + vr.behavior + vr.cleanliness +
-               vr.location + vr.confidence) = 10 AND date(v.timestamp) >= ?
-    """
-    superhero_rows = db.execute(superhero_query, (start_of_month.strftime('%Y-%m-%d'),)).fetchall()
-    for row in superhero_rows:
-        statuses[row['user_id']] = 'بطل خارق'
-    end_of_month = (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1) - timedelta(days=1)) if start_of_month.month != 12 else date(start_of_month.year, 12, 31)
-    monthly_champions_query = """
-        SELECT v.user_id, SUM(vr.participation + vr.memorization + vr.pronunciation + vr.use_of_aids +
-                vr.filming_lighting + vr.sound_quality + vr.behavior + vr.cleanliness +
-                vr.location + vr.confidence) as total_stars
-        FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
-        WHERE v.video_type = 'اثرائي' AND date(v.timestamp) BETWEEN ? AND ?
-        GROUP BY v.user_id ORDER BY total_stars DESC LIMIT 1;
-    """
-    monthly_champion_row = db.execute(monthly_champions_query, (start_of_month.strftime('%Y-%m-%d'), end_of_month.strftime('%Y-%m-%d'))).fetchone()
-    if monthly_champion_row and monthly_champion_row['total_stars'] and monthly_champion_row['total_stars'] > 0:
-        monthly_champion_id = monthly_champion_row['user_id']
-        if monthly_champion_id not in statuses:
-            statuses[monthly_champion_id] = 'بطل الشهر'
-    students = db.execute("SELECT id FROM users WHERE role = 'student'").fetchall()
-    for student in students:
-        student_id = student['id']
-        carried_stars = 0
-        bank_entry = db.execute(
-            "SELECT banked_stars FROM star_bank WHERE user_id = ? AND last_updated_week_start_date = ?",
-            (student_id, start_of_previous_week.strftime('%Y-%m-%d'))
-        ).fetchone()
-        if bank_entry: carried_stars = bank_entry['banked_stars']
-        new_stars_row = db.execute("""
-            SELECT SUM(vr.participation + vr.memorization + vr.pronunciation + vr.use_of_aids) as stars
-            FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
-            WHERE v.video_type = 'منهجي' AND v.user_id = ? AND date(v.timestamp) >= ?
-        """, (student_id, start_of_week.strftime('%Y-%m-%d'))).fetchone()
-        new_stars = new_stars_row['stars'] if new_stars_row and new_stars_row['stars'] is not None else 0
-        total_score_this_week = carried_stars + new_stars
-        stars_to_bank_for_next_week = 0
-        if total_score_this_week >= 4:
-            if student_id not in statuses: statuses[student_id] = 'بطل الأسبوع'
+    
+    # 1. جلب جميع المعايير الديناميكية
+    criteria = db.execute("SELECT id, key, video_type FROM rating_criteria").fetchall()
+    criteria_map = {c['key']: c['id'] for c in criteria}
+    manhaji_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'منhaji'").fetchone()[0]
+    ithrai_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'اثرائي'").fetchone()[0]
+
+    if ithrai_criteria_count > 0:
+        # 2. أبطال خارقون (الحاصلون على 10/10 أو Max/Max في فيديو إثرائي هذا الشهر)
+        start_of_month = today.replace(day=1)
+        superhero_query = """
+            SELECT v.user_id, SUM(dr.is_awarded) as total_stars
+            FROM dynamic_video_ratings dr
+            JOIN videos v ON dr.video_id = v.id
+            JOIN rating_criteria rc ON dr.criterion_id = rc.id
+            WHERE rc.video_type = 'اثرائي' AND date(v.timestamp) >= ?
+            GROUP BY v.user_id, v.id
+            HAVING total_stars = ?
+        """
+        superhero_rows = db.execute(superhero_query, (start_of_month.strftime('%Y-%m-%d'), ithrai_criteria_count)).fetchall()
+        for row in superhero_rows:
+            statuses[row['user_id']] = 'بطل خارق'
+
+        # 3. بطل الشهر (أعلى مجموع نجوم إثرائية هذا الشهر)
+        end_of_month = (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1) - timedelta(days=1)) if start_of_month.month != 12 else date(start_of_month.year, 12, 31)
+        monthly_champions_query = """
+            SELECT v.user_id, SUM(dr.is_awarded) as total_stars
+            FROM dynamic_video_ratings dr
+            JOIN videos v ON dr.video_id = v.id
+            JOIN rating_criteria rc ON dr.criterion_id = rc.id
+            WHERE rc.video_type = 'اثرائي' AND date(v.timestamp) BETWEEN ? AND ?
+            GROUP BY v.user_id ORDER BY total_stars DESC LIMIT 1;
+        """
+        monthly_champion_row = db.execute(monthly_champions_query, (start_of_month.strftime('%Y-%m-%d'), end_of_month.strftime('%Y-%m-%d'))).fetchone()
+        if monthly_champion_row and monthly_champion_row['total_stars'] and monthly_champion_row['total_stars'] > 0:
+            monthly_champion_id = monthly_champion_row['user_id']
+            if monthly_champion_id not in statuses:
+                statuses[monthly_champion_id] = 'بطل الشهر'
+
+    # 4. بطل الأسبوع (نظام النجوم المنهجية)
+    if manhaji_criteria_count > 0:
+        days_since_saturday = (today.weekday() + 2) % 7
+        start_of_week = today - timedelta(days=days_since_saturday)
+        start_of_previous_week = start_of_week - timedelta(days=7)
+        
+        students = db.execute("SELECT id FROM users WHERE role = 'student'").fetchall()
+        for student in students:
+            student_id = student['id']
+            carried_stars = 0
+            bank_entry = db.execute(
+                "SELECT banked_stars FROM star_bank WHERE user_id = ? AND last_updated_week_start_date = ?",
+                (student_id, start_of_previous_week.strftime('%Y-%m-%d'))
+            ).fetchone()
+            if bank_entry: carried_stars = bank_entry['banked_stars']
+            
+            new_stars_row = db.execute("""
+                SELECT SUM(dr.is_awarded) as stars
+                FROM dynamic_video_ratings dr
+                JOIN videos v ON dr.video_id = v.id
+                JOIN rating_criteria rc ON dr.criterion_id = rc.id
+                WHERE rc.video_type = 'منهجي' AND v.user_id = ? AND date(v.timestamp) >= ?
+            """, (student_id, start_of_week.strftime('%Y-%m-%d'))).fetchone()
+            
+            new_stars = new_stars_row['stars'] if new_stars_row and new_stars_row['stars'] is not None else 0
+            total_score_this_week = carried_stars + new_stars
             stars_to_bank_for_next_week = 0
-        else:
-            stars_to_bank_for_next_week = total_score_this_week
-        db.execute("""
-            INSERT INTO star_bank (user_id, banked_stars, last_updated_week_start_date) VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-            banked_stars = excluded.banked_stars, last_updated_week_start_date = excluded.last_updated_week_start_date;
-        """, (student_id, stars_to_bank_for_next_week, start_of_week.strftime('%Y-%m-%d')))
+            
+            if total_score_this_week >= manhaji_criteria_count:
+                if student_id not in statuses: statuses[student_id] = 'بطل الأسبوع'
+                stars_to_bank_for_next_week = 0
+            else:
+                stars_to_bank_for_next_week = total_score_this_week
+            
+            db.execute("""
+                INSERT INTO star_bank (user_id, banked_stars, last_updated_week_start_date) VALUES (?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                banked_stars = excluded.banked_stars, last_updated_week_start_date = excluded.last_updated_week_start_date;
+            """, (student_id, stars_to_bank_for_next_week, start_of_week.strftime('%Y-%m-%d')))
+    
     db.commit()
     return statuses
+# ================== END: MODIFIED get_champion_statuses ==================
+
+
+# ================== START: NEW FUNCTION FOR SUPERHEROES ==================
+def get_superhero_champions_details():
+    """
+    تجلب قائمة ببيانات المستخدمين الفريدة الذين فازوا بلقب "بطل خارق"
+    (تقييم كامل لفيديو إثرائي) خلال هذا الشهر.
+    """
+    db = get_db()
+    today = date.today()
+    start_of_month = today.replace(day=1)
+
+    # 1. جلب الحد الأقصى لنجوم "اثرائي"
+    ithrai_criteria_count_row = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'اثرائي'").fetchone()
+    max_ithrai_stars = ithrai_criteria_count_row[0] if ithrai_criteria_count_row else 0
+
+    if max_ithrai_stars == 0:
+        return [], 0 # إرجاع قائمة فارغة إذا لم يتم تحديد معايير
+
+    # 2. جلب المستخدمين الفريدين الذين لديهم فيديو واحد على الأقل بتقييم كامل
+    superhero_query = """
+        SELECT DISTINCT u.id, u.username, u.profile_image
+        FROM users u
+        WHERE u.id IN (
+            -- Subquery to find user_ids who have a perfect 'اثرائي' video this month
+            SELECT v.user_id
+            FROM dynamic_video_ratings dr
+            JOIN videos v ON dr.video_id = v.id
+            JOIN rating_criteria rc ON dr.criterion_id = rc.id
+            WHERE rc.video_type = 'اثرائي'
+              AND date(v.timestamp) >= ?
+              AND v.is_approved = 1
+            GROUP BY v.id, v.user_id
+            HAVING SUM(dr.is_awarded) = ?
+        )
+        ORDER BY u.username
+    """
+    
+    superhero_users = db.execute(superhero_query, (start_of_month.strftime('%Y-%m-%d'), max_ithrai_stars)).fetchall()
+    
+    return superhero_users, max_ithrai_stars
+# ================== END: NEW FUNCTION FOR SUPERHEROES ==================
+
 
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -2471,7 +2760,10 @@ def before_request_handler():
             return redirect(url_for('login'))
 
         # --- تعديل: إضافة uploaded_file إلى القائمة المسموحة ---
-        allowed_endpoints = ['login', 'logout', 'edit_user', 'static', 'my_messages', 'api_get_student_messages', 'api_send_student_message', 'uploaded_file']
+        # --- تعديل: إضافة مسارات المعايير الجديدة ---
+        allowed_endpoints = ['login', 'logout', 'edit_user', 'static', 
+                             'my_messages', 'api_get_student_messages', 'api_send_student_message', 
+                             'uploaded_file', 'admin_criteria', 'add_criterion', 'delete_criterion']
 
         if user['role'] == 'student' and request.endpoint not in allowed_endpoints:
             if not user['is_profile_complete']:
@@ -2501,6 +2793,16 @@ def before_request_handler():
         ).fetchone()[0]
         g.unapproved_count = count
     # --- END: NEW CODE ---
+    
+    # ================== NEW: Load all criteria into g ==================
+    db = get_db()
+    all_criteria_rows = db.execute("SELECT id, name, key, video_type FROM rating_criteria").fetchall()
+    g.all_criteria = defaultdict(list)
+    g.criteria_key_map = {}
+    for c in all_criteria_rows:
+        g.all_criteria[c['video_type']].append(dict(c))
+        g.criteria_key_map[c['key']] = dict(c)
+    # ================== END: Load criteria ==================
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
@@ -2543,7 +2845,7 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
-# ----------------- SHARED DATA FETCHING LOGIC -----------------
+# ================== START: MODIFIED get_common_video_data ==================
 def get_common_video_data(video_ids):
     db = get_db()
     video_ratings = {}
@@ -2551,30 +2853,57 @@ def get_common_video_data(video_ids):
     user_liked_videos = set()
     video_comments = defaultdict(lambda: defaultdict(list))
 
+    # 1. جلب كل المعايير من g (تم تحميلها في before_request)
+    all_criteria_by_type = g.all_criteria
+    criteria_key_map = g.criteria_key_map
+    
+    # حساب الحد الأقصى للنجوم لكل نوع
+    max_stars_manhaji = len(all_criteria_by_type.get('منهجي', []))
+    max_stars_ithrai = len(all_criteria_by_type.get('اثرائي', []))
+
     if not video_ids:
         return video_ratings, video_likes, user_liked_videos, video_comments
 
     placeholders = ','.join('?' for _ in video_ids)
 
+    # 2. جلب جميع التقييمات الديناميكية للفيديوهات المطلوبة
     ratings_data = db.execute(f'''
-        SELECT vr.*, v.video_type
-        FROM video_ratings vr JOIN videos v ON vr.video_id = v.id
-        WHERE vr.video_id IN ({placeholders})
+        SELECT dr.video_id, dr.is_awarded, rc.key, v.video_type
+        FROM dynamic_video_ratings dr
+        JOIN rating_criteria rc ON dr.criterion_id = rc.id
+        JOIN videos v ON dr.video_id = v.id
+        WHERE dr.video_id IN ({placeholders})
     ''', video_ids).fetchall()
 
+    # 3. تجميع التقييمات في قاموس منظم
+    # الهيكل الجديد:
+    # video_ratings = {
+    #   video_id_1: {
+    #     'total_stars': 3,
+    #     'max_stars': 4,
+    #     'ratings': { 'participation_m': 1, 'memorization_m': 1, 'pronunciation_m': 0, 'use_of_aids_m': 1 }
+    #   }
+    # }
+    temp_ratings = defaultdict(lambda: {'total_stars': 0, 'max_stars': 0, 'ratings': {}})
+    
     for item in ratings_data:
-        rating_dict = dict(item)
-        if rating_dict['video_type'] == 'اثرائي':
-            total_stars = sum(rating_dict.get(key, 0) for key in
-                              ['participation', 'memorization', 'pronunciation', 'use_of_aids',
-                               'filming_lighting', 'sound_quality', 'behavior', 'cleanliness',
-                               'location', 'confidence'])
-        else: # منهجي
-            total_stars = sum(rating_dict.get(key, 0) for key in
-                              ['participation', 'memorization', 'pronunciation', 'use_of_aids'])
-        rating_dict['total_stars'] = total_stars
-        video_ratings[item['video_id']] = rating_dict
+        video_id = item['video_id']
+        key = item['key']
+        is_awarded = item['is_awarded']
+        video_type = item['video_type']
+        
+        temp_ratings[video_id]['ratings'][key] = is_awarded
+        if is_awarded:
+            temp_ratings[video_id]['total_stars'] += 1
+            
+        if video_type == 'منهجي':
+            temp_ratings[video_id]['max_stars'] = max_stars_manhaji
+        else:
+            temp_ratings[video_id]['max_stars'] = max_stars_ithrai
 
+    video_ratings = dict(temp_ratings)
+
+    # 4. جلب الإعجابات (نفس الكود القديم)
     likes_data = db.execute(f'SELECT video_id, COUNT(id) as count FROM video_likes WHERE video_id IN ({placeholders}) GROUP BY video_id', video_ids).fetchall()
     video_likes = {item['video_id']: item['count'] for item in likes_data}
 
@@ -2582,6 +2911,7 @@ def get_common_video_data(video_ids):
         user_likes_rows = db.execute(f'SELECT video_id FROM video_likes WHERE user_id = ? AND video_id IN ({placeholders})', [session['user_id']] + video_ids).fetchall()
         user_liked_videos = {row['video_id'] for row in user_likes_rows}
 
+    # 5. جلب التعليقات (نفس الكود القديم)
     comments_data = db.execute(f'''
         SELECT c.id, c.content, c.video_id, c.parent_id, c.timestamp, u.username, u.role, u.profile_image, c.user_id, c.is_pinned
         FROM comments c JOIN users u ON c.user_id = u.id
@@ -2592,10 +2922,14 @@ def get_common_video_data(video_ids):
         video_comments[comment['video_id']]['toplevel'].append(dict(comment))
 
     return video_ratings, video_likes, user_liked_videos, video_comments
+# ================== END: MODIFIED get_common_video_data ==================
 
+
+# ================== START: MODIFIED common_scripts_block ==================
 common_scripts_block = """
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // دالة الإعجاب (لم تتغير)
     document.querySelectorAll('.like-btn').forEach(button => {
         button.addEventListener('click', function(event) {
             event.preventDefault();
@@ -2612,6 +2946,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // دالة التعليق (لم تتغير)
     document.querySelectorAll('.comment-form-new').forEach(form => {
         form.addEventListener('submit', function(event) {
             event.preventDefault();
@@ -2630,19 +2965,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // ================== MODIFIED: دالة التقييم ==================
     document.querySelectorAll('.rating-form').forEach(form => {
         form.addEventListener('change', function() {
             const videoId = this.dataset.videoId;
             const videoType = this.dataset.videoType;
-            const ratingData = {};
+            const ratingData = {}; // سيحتوي على { 'key1': 1, 'key2': 0, ... }
 
+            // تجميع بيانات المربعات المحددة
             this.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 ratingData[checkbox.name] = checkbox.checked ? 1 : 0;
             });
 
+            // إرسال البيانات الديناميكية إلى الخادم
             fetch(`/video/${videoId}/rate`, {
                 method: 'POST',
-                body: JSON.stringify(ratingData),
+                body: JSON.stringify(ratingData), // إرسال القاموس الديناميكي
                 headers: { 'Content-Type': 'application/json' }
             })
             .then(response => response.json())
@@ -2651,20 +2989,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     const starsDisplay = document.getElementById(`stars-display-${videoId}`);
                     if (starsDisplay) {
                         if (data.total_stars > 0) {
-                            const max_stars = videoType === 'اثرائي' ? 10 : 4;
-                            starsDisplay.innerHTML = `<i class="fas fa-star"></i> ${data.total_stars} / ${max_stars}`;
+                            // استخدام الحد الأقصى الديناميكي من الخادم
+                            starsDisplay.innerHTML = `<i class="fas fa-star"></i> ${data.total_stars} / ${data.max_stars}`;
                         } else {
                             starsDisplay.innerHTML = `<small class="text-muted">لم يُقيّم بعد</small>`;
                         }
                     }
                     if (data.champion_message) {
-                        location.reload();
+                        location.reload(); // أعد تحميل الصفحة إذا أصبح بطلاً
                     }
                 }
             }).catch(console.error);
         });
     });
+    // ================== END: MODIFIED: دالة التقييم ==================
 
+
+    // دوال إدارة التعليقات (لم تتغير)
     document.body.addEventListener('click', function(event) {
         const deleteButton = event.target.closest('.delete-comment-btn');
         if (deleteButton) {
@@ -2743,12 +3084,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 """
-
 # ----------------- CORE APPLICATION ROUTES -----------------
 @app.route('/')
 def index():
     if 'user_id' not in session: return redirect(url_for('login'))
     db = get_db()
+
+    # --- START: NEW CODE TO GET SUPERHEROES ---
+    superhero_champions, max_ithrai_stars = get_superhero_champions_details()
+    # --- END: NEW CODE ---
 
     all_classes = []
     all_sections = []
@@ -2803,9 +3147,14 @@ def index():
                        all_sections=all_sections,
                        selected_class=selected_class,
                        selected_section=selected_section,
-                       selected_video_type=selected_video_type
+                       selected_video_type=selected_video_type,
+                       all_criteria=g.all_criteria, # <--- تعديل: تمرير المعايير
+                       
+                       # --- START: NEW DATA FOR TEMPLATE ---
+                       superhero_champions=superhero_champions,
+                       max_ithrai_stars=max_ithrai_stars
+                       # --- END: NEW DATA ---
                        )
-
 @app.route('/archive')
 def archive():
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -2861,7 +3210,8 @@ def archive():
                        selected_class=selected_class,
                        start_date=start_date,
                        end_date=end_date,
-                       selected_video_type=selected_video_type
+                       selected_video_type=selected_video_type,
+                       all_criteria=g.all_criteria # <--- تعديل: تمرير المعايير
                       )
 
 
@@ -2891,7 +3241,9 @@ def profile(username):
 
     return render_page('profile', user=user, videos=user_videos, user_status=get_champion_statuses().get(user['id']),
                        video_ratings=video_ratings, video_likes=video_likes, user_liked_videos=user_liked_videos,
-                       video_comments=video_comments, scripts_block=common_scripts_block)
+                       video_comments=video_comments, scripts_block=common_scripts_block,
+                       all_criteria=g.all_criteria # <--- تعديل: تمرير المعايير
+                       )
 
 # --- START: NEW ROUTE FOR VIDEO REVIEW ---
 @app.route('/video_review')
@@ -2920,7 +3272,8 @@ def video_review():
                        video_likes=video_likes,
                        user_liked_videos=user_liked_videos,
                        video_comments=video_comments,
-                       scripts_block=common_scripts_block # لإضافة وظائف التعليق والإعجاب...الخ
+                       scripts_block=common_scripts_block, # لإضافة وظائف التعليق والإعجاب...الخ
+                       all_criteria=g.all_criteria # <--- تعديل: تمرير المعايير
                       )
 # --- END: NEW ROUTE ---
 
@@ -3086,51 +3439,65 @@ def like_video(video_id):
     likes_count = db.execute('SELECT COUNT(id) FROM video_likes WHERE video_id = ?', (video_id,)).fetchone()[0]
     return jsonify({'status': 'success', 'likes_count': likes_count, 'user_likes': user_likes})
 
+# ================== START: MODIFIED rate_video (Dynamic) ==================
 @app.route('/video/<int:video_id>/rate', methods=['POST'])
 def rate_video(video_id):
     if session.get('role') != 'admin':
         return jsonify({'status': 'error', 'message': 'Admins only.'}), 403
 
+    # 1. جلب البيانات المرسلة (قاموس بالمفاتيح والقيم 0 أو 1)
     data = request.get_json()
     db = get_db()
 
+    # 2. التأكد من وجود الفيديو
     video = db.execute('SELECT video_type FROM videos WHERE id = ?', (video_id,)).fetchone()
     if not video:
         return jsonify({'status': 'error', 'message': 'Video not found.'}), 404
 
-    base_fields = ['participation', 'memorization', 'pronunciation', 'use_of_aids']
-    extra_fields = ['filming_lighting', 'sound_quality', 'behavior', 'cleanliness', 'location', 'confidence']
-    all_fields = base_fields + extra_fields
-
-    values = {'video_id': video_id, 'admin_id': session['user_id']}
+    # 3. جلب المعايير من g (التي تم تحميلها في before_request)
+    admin_id = session['user_id']
+    criteria_key_map = g.criteria_key_map # قاموس { 'key': {...} }
+    all_criteria_by_type = g.all_criteria # قاموس { 'نوع الفيديو': [...] }
+    
+    video_type_criteria = all_criteria_by_type.get(video['video_type'], [])
+    max_stars = len(video_type_criteria)
     total_stars = 0
     champion_message = None
 
-    if video['video_type'] == 'اثرائي':
-        for field in all_fields:
-            values[field] = data.get(field, 0)
-        total_stars = sum(values[f] for f in all_fields)
-        if total_stars == 10:
-            champion_message = "أصبح هذا الطالب بطلاً خارقاً!"
-    else: # منهجي
-        for field in base_fields:
-            values[field] = data.get(field, 0)
-        for field in extra_fields:
-            values[field] = 0
-        total_stars = sum(values[f] for f in base_fields)
+    # 4. المرور على جميع المعايير الخاصة بنوع هذا الفيديو
+    for criterion in video_type_criteria:
+        criterion_key = criterion['key']
+        criterion_id = criterion['id']
+        
+        # 5. تحديد القيمة (هل تم منح النجمة أم لا)
+        is_awarded = data.get(criterion_key, 0)
+        
+        if is_awarded == 1:
+            total_stars += 1
 
-    update_set_clause = ', '.join([f'{field}=excluded.{field}' for field in all_fields])
+        # 6. تحديث قاعدة البيانات (INSERT أو UPDATE)
+        db.execute(f'''
+            INSERT INTO dynamic_video_ratings (video_id, criterion_id, is_awarded, admin_id)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(video_id, criterion_id) DO UPDATE SET
+            is_awarded = excluded.is_awarded, admin_id = excluded.admin_id
+        ''', (video_id, criterion_id, is_awarded, admin_id))
 
-    query = f'''
-        INSERT INTO video_ratings (video_id, admin_id, {', '.join(all_fields)})
-        VALUES (:{', :'.join(['video_id', 'admin_id'] + all_fields)})
-        ON CONFLICT(video_id) DO UPDATE SET {update_set_clause}
-    '''
-
-    db.execute(query, values)
     db.commit()
 
-    return jsonify({'status': 'success', 'total_stars': total_stars, 'champion_message': champion_message})
+    # 7. التحقق من حالة "البطل الخارق"
+    if video['video_type'] == 'اثرائي' and total_stars == max_stars and max_stars > 0:
+        champion_message = "أصبح هذا الطالب بطلاً خارقاً!"
+
+    # 8. إرجاع البيانات المحدثة إلى الواجهة
+    return jsonify({
+        'status': 'success',
+        'total_stars': total_stars,
+        'max_stars': max_stars,
+        'champion_message': champion_message
+    })
+# ================== END: MODIFIED rate_video (Dynamic) ==================
+
 
 # --- START: NEW ROUTES FOR VIDEO APPROVAL ---
 @app.route('/video/<int:video_id>/approve', methods=['POST'])
@@ -3167,9 +3534,7 @@ def delete_video(video_id):
             os.remove(filepath)
 
         # 2. حذف جميع البيانات المتعلقة بالفيديو من قاعدة البيانات
-        db.execute('DELETE FROM video_ratings WHERE video_id = ?', (video_id,))
-        db.execute('DELETE FROM video_likes WHERE video_id = ?', (video_id,))
-        db.execute('DELETE FROM comments WHERE video_id = ?', (video_id,))
+        # بفضل ON DELETE CASCADE، سيتم حذف التقييمات والإعجابات والتعليقات تلقائياً
         db.execute('DELETE FROM videos WHERE id = ?', (video_id,))
 
         db.commit()
@@ -3199,7 +3564,6 @@ def comment_video(video_id):
         db.commit()
         return jsonify({'status': 'success'})
     return jsonify({'status': 'error', 'message': 'Empty comment.'}), 400
-
 # ----------------- COMMENT MANAGEMENT ROUTES -----------------
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 def edit_comment(comment_id):
@@ -3257,7 +3621,6 @@ def pin_comment(comment_id):
     db.commit()
 
     return jsonify({'status': 'success', 'is_pinned': new_status})
-
 # ----------------- REPORTS & ADMIN ROUTES -----------------
 @app.route('/students')
 def students():
@@ -3297,6 +3660,7 @@ def students():
                        selected_section=selected_section,
                        search_name=search_name)
 
+# ================== START: MODIFIED reports (Dynamic) ==================
 @app.route('/reports')
 def reports():
     if session.get('role') != 'admin': return redirect(url_for('index'))
@@ -3305,46 +3669,83 @@ def reports():
     selected_class = request.args.get('class_name', '')
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
 
+    # 1. جلب الطلاب
     student_query = "SELECT id, username, class_name, section_name FROM users WHERE role = 'student'"
     params = []
     if selected_class:
         student_query += " AND class_name = ?"
         params.append(selected_class)
     student_query += " ORDER BY username"
-
     students = db.execute(student_query, tuple(params)).fetchall()
 
+    # 2. جلب جميع المعايير (من g)
+    all_criteria = g.all_criteria
+
+    # 3. جلب جميع فيديوهات الطلاب المفلترة
+    video_params = []
+    if selected_class:
+        video_params.append(selected_class)
+    
+    all_student_videos = db.execute(f"""
+        SELECT v.id, v.title, v.timestamp, v.user_id, v.video_type
+        FROM videos v
+        JOIN users u ON v.user_id = u.id
+        WHERE v.is_approved = 1 AND u.role = 'student'
+        {'AND u.class_name = ?' if selected_class else ''}
+    """, tuple(video_params)).fetchall()
+
+    all_video_ids = [v['id'] for v in all_student_videos]
+    videos_by_student = defaultdict(lambda: defaultdict(list))
+    for v in all_student_videos:
+        videos_by_student[v['user_id']][v['video_type']].append(dict(v))
+
+    # 4. جلب جميع تقييمات هذه الفيديوهات مرة واحدة
+    all_ratings = {}
+    if all_video_ids:
+        placeholders = ','.join('?' for _ in all_video_ids)
+        ratings_rows = db.execute(f"""
+            SELECT dr.video_id, dr.is_awarded, rc.key
+            FROM dynamic_video_ratings dr
+            JOIN rating_criteria rc ON dr.criterion_id = rc.id
+            WHERE dr.video_id IN ({placeholders})
+        """, all_video_ids).fetchall()
+        
+        # تنظيم التقييمات حسب الفيديو
+        for r in ratings_rows:
+            video_id = r['video_id']
+            if video_id not in all_ratings:
+                all_ratings[video_id] = {'total_stars': 0, 'ratings': {}}
+            
+            all_ratings[video_id]['ratings'][r['key']] = r['is_awarded']
+            if r['is_awarded']:
+                all_ratings[video_id]['total_stars'] += 1
+
+    # 5. إعداد بيانات التقرير النهائية
     report_data = []
     champion_statuses = get_champion_statuses()
     start_of_week_dt = datetime.combine(date.today() - timedelta(days=date.today().weekday()), datetime.min.time())
 
     for student in students:
         student_info = dict(student)
+        student_id = student['id']
 
-        videos = db.execute("""
-            SELECT v.title, v.timestamp, vr.* FROM videos v LEFT JOIN video_ratings vr ON v.id = vr.video_id
-            WHERE v.user_id = ? AND v.video_type = 'منهجي'
-            ORDER BY v.timestamp DESC
-        """, (student['id'],)).fetchall()
-        student_info['videos'] = [{'total_stars': sum((v[key] or 0) for key in ['participation', 'memorization', 'pronunciation', 'use_of_aids']), **dict(v)} for v in videos]
+        # إضافة الفيديوهات المنهجية مع تقييماتها
+        student_info['videos_manhaji'] = []
+        for video in videos_by_student[student_id]['منهجي']:
+            video_data = dict(video)
+            video_ratings = all_ratings.get(video['id'], {'total_stars': 0, 'ratings': {}})
+            video_data.update(video_ratings)
+            student_info['videos_manhaji'].append(video_data)
 
-        enrichment_videos = db.execute("""
-            SELECT v.title, v.timestamp, vr.*
-            FROM videos v LEFT JOIN video_ratings vr ON v.id = vr.video_id
-            WHERE v.user_id = ? AND v.video_type = 'اثرائي'
-            ORDER BY v.timestamp DESC
-        """, (student['id'],)).fetchall()
+        # إضافة الفيديوهات الإثرائية مع تقييماتها
+        student_info['videos_ithrai'] = []
+        for video in videos_by_student[student_id]['اثرائي']:
+            video_data = dict(video)
+            video_ratings = all_ratings.get(video['id'], {'total_stars': 0, 'ratings': {}})
+            video_data.update(video_ratings)
+            student_info['videos_ithrai'].append(video_data)
 
-        student_info['enrichment_videos'] = []
-        for v in enrichment_videos:
-            video_data = dict(v)
-            total_stars = sum((v[key] or 0) for key in [
-                'participation', 'memorization', 'pronunciation', 'use_of_aids', 'filming_lighting',
-                'sound_quality', 'behavior', 'cleanliness', 'location', 'confidence'
-            ])
-            video_data['total_stars'] = total_stars
-            student_info['enrichment_videos'].append(video_data)
-
+        # إضافة ملخص النشاط الأسبوعي
         student_info['weekly_activity'] = {
             'uploads': db.execute("SELECT COUNT(id) as count FROM videos WHERE user_id = ? AND timestamp >= ?", (student['id'], start_of_week_dt)).fetchone()['count'],
             'comments': db.execute("SELECT COUNT(id) as count FROM comments WHERE user_id = ? AND timestamp >= ?", (student['id'], start_of_week_dt)).fetchone()['count'],
@@ -3355,7 +3756,11 @@ def reports():
     return render_page('reports',
                        report_data=report_data,
                        all_classes=all_classes,
-                       selected_class=selected_class)
+                       selected_class=selected_class,
+                       all_criteria=all_criteria # <--- تعديل: تمرير المعايير
+                       )
+# ================== END: MODIFIED reports (Dynamic) ==================
+
 
 @app.route('/admin_dashboard')
 def admin_dashboard():
@@ -3370,6 +3775,54 @@ def admin_dashboard():
     students = [{**s, 'end_date': datetime.strptime(s['end_date'].split('.')[0], '%Y-%m-%d %H:%M:%S') if s['end_date'] else None} for s in students]
     return render_page('admin_dashboard', students=students)
 
+# ================== START: NEW CRITERIA MANAGEMENT ROUTES ==================
+@app.route('/admin/criteria')
+def admin_criteria():
+    if session.get('role') != 'admin':
+        return redirect(url_for('index'))
+    
+    db = get_db()
+    # جلب المعايير من g (تم تحميلها في before_request)
+    criteria_data = g.all_criteria
+    
+    return render_page('admin_criteria', criteria=criteria_data)
+
+@app.route('/admin/criteria/add', methods=['POST'])
+def add_criterion():
+    if session.get('role') != 'admin':
+        return redirect(url_for('index'))
+    
+    name = request.form.get('name')
+    key = request.form.get('key')
+    video_type = request.form.get('video_type')
+
+    if not name or not key or not video_type:
+        flash('جميع الحقول مطلوبة.', 'danger')
+        return redirect(url_for('admin_criteria'))
+
+    db = get_db()
+    try:
+        db.execute("INSERT INTO rating_criteria (name, key, video_type) VALUES (?, ?, ?)", (name, key, video_type))
+        db.commit()
+        flash('تم إضافة المعيار بنجاح!', 'success')
+    except sqlite3.IntegrityError:
+        flash('خطأ: المفتاح البرمجي (key) يجب أن يكون فريداً (غير مكرر).', 'danger')
+    
+    return redirect(url_for('admin_criteria'))
+
+@app.route('/admin/criteria/<int:criterion_id>/delete', methods=['POST'])
+def delete_criterion(criterion_id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('index'))
+    
+    db = get_db()
+    # الحذف من جدول المعايير (وسيتم الحذف من dynamic_video_ratings تلقائياً بفضل ON DELETE CASCADE)
+    db.execute("DELETE FROM rating_criteria WHERE id = ?", (criterion_id,))
+    db.commit()
+    
+    flash('تم حذف المعيار وأي تقييمات مرتبطة به.', 'success')
+    return redirect(url_for('admin_criteria'))
+# ================== END: NEW CRITERIA MANAGEMENT ROUTES ==================
 @app.route('/admin/create_student', methods=['POST'])
 def create_student():
     if session.get('role') != 'admin': return redirect(url_for('index'))
@@ -3469,6 +3922,7 @@ def toggle_mute(student_id):
         flash('الطالب غير موجود.', 'danger')
     return redirect(url_for('admin_dashboard'))
 
+# ================== START: MODIFIED start_new_year ==================
 @app.route('/admin/start_new_year', methods=['POST'])
 def start_new_year():
     if session.get('role') != 'admin':
@@ -3499,14 +3953,16 @@ def start_new_year():
                 print(f"Error deleting video file {video['filepath']}: {e}")
         # --- END: MODIFICATION ---
 
-        db.execute('DELETE FROM comments')
-        db.execute('DELETE FROM video_likes')
-        db.execute('DELETE FROM video_ratings')
-        db.execute('DELETE FROM videos')
+        # حذف البيانات من الجداول
+        # بفضل ON DELETE CASCADE، سيتم حذف البيانات المرتبطة تلقائياً
+        # (مثل التعليقات، الإعجابات، التقييمات عند حذف الفيديوهات)
+        db.execute('DELETE FROM videos') 
         db.execute('DELETE FROM posts')
         db.execute('DELETE FROM star_bank')
         db.execute('DELETE FROM suspensions')
         db.execute('DELETE FROM messages')
+        
+
 
         db.execute("""
             UPDATE users
@@ -3521,7 +3977,7 @@ def start_new_year():
         flash(f'حدث خطأ أثناء بدء السنة الجديدة: {e}', 'danger')
 
     return redirect(url_for('admin_dashboard'))
-
+# ================== END: MODIFIED start_new_year ==================
 # ----------------- CONVERSATION ROUTES (Main Pages + APIs) -----------------
 @app.route('/conversations')
 def conversations():
@@ -3711,14 +4167,13 @@ def uploaded_file(filename):
     except Exception as e:
          print(f"Error serving file {filename}: {e}") # Log error for debugging
          abort(500) # Internal Server Error
-# --- نهاية التعديل 2 ---
 
-init_db() # تأكد من تهيئة قاعدة البيانات
+
+init_db() 
 if __name__ == '__main__':
-    from waitress import serve
-    print("Starting server on http://0.0.0.0:5000")
-    # لا تستخدم app.run() في الوضع العام
-    # app.run(host='0.0.0.0', debug=True)
 
-    # استخدم waitress بدلاً عنه
-    serve(app, host='0.0.0.0', port=5000)
+    
+
+    print("--- STARTING IN DEBUG MODE (FOR LOCAL TESTING) ---")
+ 
+    app.run(host='0.0.0.0', debug=True)
