@@ -189,27 +189,37 @@ base_html = """
             margin-bottom: 1rem;
         }
 
-        /* Ship-like framed headers (شِيب اطارات) */
-        .ship-frames { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+        /* Ship-like framed header */
         .ship-frame {
-            padding: 12px 20px;
-            border-radius: 18px;
+            font-size: 3rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            margin: 0 auto;
+            border-radius: 15px;
             background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,245,250,0.9));
-            box-shadow: 0 6px 18px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
-            border: 2px solid rgba(13,110,253,0.12);
-            font-weight: 700;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+            border: 3px solid;
+            border-image: linear-gradient(45deg, #0d6efd, #20c997) 1;
             color: #0d2640;
-            min-width: 180px;
             text-align: center;
-            transition: transform 0.35s ease, box-shadow 0.35s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .ship-frame span { display: inline-block; direction: rtl; }
-        .ship-frame:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 14px 30px rgba(0,0,0,0.18); }
-
-        /* Variant styles */
-        .ship-frame-left { border-image: linear-gradient(45deg, #0d6efd, #20c997) 1; }
-        .ship-frame-center { border-image: linear-gradient(45deg, #6f42c1, #0d6efd) 1; background: linear-gradient(180deg,#ffffff,#eef2ff); }
-        .ship-frame-right { border-image: linear-gradient(45deg, #20c997, #f59e0b) 1; }
+        .ship-frame:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .ship-frame span {
+            display: inline-block;
+            direction: rtl;
+            background: linear-gradient(90deg, #0d6efd, #6f42c1, #20c997);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% auto;
+            animation: textGradient 5s linear infinite;
+        }
+        @keyframes textGradient {
+            to { background-position: -200% center; }
+        }
 
         /* Card styles - semi-transparent for a "glass" effect over the background */
         .card {
@@ -377,17 +387,8 @@ base_html = """
             </header>
 
             <div class="header-title-container">
-                <!-- Ship-like framed headers (شِيب اطارات) -->
-                <div class="ship-frames">
-                    <div class="ship-frame ship-frame-left">
-                        <span>منصة الاستاذ بسام الجنابي</span>
-                    </div>
-                    <div class="ship-frame ship-frame-center">
-                        <span>مادة الحاسوب</span>
-                    </div>
-                    <div class="ship-frame ship-frame-right">
-                        <span>منصة الاستاذ بسام الجنابي مادة الحاسوب</span>
-                    </div>
+                <div class="ship-frame">
+                    <span>منصة الاستاذ بسام الجنابي مادة الحاسوب</span>
                 </div>
             </div>
 
