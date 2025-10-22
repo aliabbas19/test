@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, date
 
 
 # الصورة الأولى ستكون للغلاف، والثانية للصورة الشخصية
-professor_image_url_1 = "https://i.postimg.cc/pT65Tppc/1447-04-22-10-34-03-b1930844.jpg" # استبدل هذا الرابط (صورة الغلاف)
+professor_image_url_1 = "https://i.ibb.co/RkWC7YZm/photo-2025-10-22-12-53-24.jpg" # استبدل هذا الرابط (صورة الغلاف)
 professor_image_url_2 = "https://i.postimg.cc/3RnCZ8Wy/1447-04-22-10-34-02-7d49049c.jpg" # استبدل هذا الرابط (الصورة الشخصية)
 
 # ----------------- HTML TEMPLATES (Embedded) -----------------
