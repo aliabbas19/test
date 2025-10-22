@@ -189,12 +189,11 @@ base_html = """
             margin-bottom: 1rem;
         }
 
-        /* Ship-like framed header */
+        /* Ship-like framed headers */
         .ship-frame {
-            font-size: 3rem;
             font-weight: bold;
-            padding: 15px 30px;
-            margin: 0 auto;
+            padding: 15px 20px;
+            margin: 10px auto;
             border-radius: 15px;
             background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,245,250,0.9));
             box-shadow: 0 6px 18px rgba(0,0,0,0.15);
@@ -203,6 +202,17 @@ base_html = """
             color: #0d2640;
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            width: 100%;
+            max-width: 800px;
+        }
+        .ship-frame.main-title {
+            font-size: 4.5rem;
+            padding: 20px 30px;
+            border-image: linear-gradient(45deg, #0d6efd, #6f42c1) 1;
+        }
+        .ship-frame.sub-title {
+            font-size: 2.5rem;
+            border-image: linear-gradient(45deg, #20c997, #0d6efd) 1;
         }
         .ship-frame:hover {
             transform: translateY(-4px);
@@ -219,6 +229,28 @@ base_html = """
         }
         @keyframes textGradient {
             to { background-position: -200% center; }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .ship-frame.main-title {
+                font-size: 3.5rem;
+                padding: 15px 20px;
+            }
+            .ship-frame.sub-title {
+                font-size: 1.8rem;
+                padding: 12px 15px;
+            }
+        }
+        @media (max-width: 480px) {
+            .ship-frame.main-title {
+                font-size: 2.8rem;
+                padding: 12px 15px;
+            }
+            .ship-frame.sub-title {
+                font-size: 1.5rem;
+                padding: 10px 12px;
+            }
         }
 
         /* Card styles - semi-transparent for a "glass" effect over the background */
@@ -387,8 +419,11 @@ base_html = """
             </header>
 
             <div class="header-title-container">
-                <div class="ship-frame">
-                    <span>منصة الاستاذ بسام الجنابي مادة الحاسوب</span>
+                <div class="ship-frame main-title">
+                    <span>منصة</span>
+                </div>
+                <div class="ship-frame sub-title">
+                    <span>الاستاذ بسام الجنابي مادة الحاسوب</span>
                 </div>
             </div>
 
