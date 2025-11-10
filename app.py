@@ -362,6 +362,32 @@ base_html = """
             .profile-picture-container { bottom: -60px; right: 20px; }
             .animated-gradient-text { font-size: 1.8rem; }
         }
+
+        /* Copyright Footer Styles */
+        .copyright-footer {
+            text-align: center;
+            padding: 15px 20px;
+            margin-top: 30px;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 2px solid rgba(13, 110, 253, 0.2);
+            border-radius: 10px 10px 0 0;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+        .copyright-footer .copyright-label {
+            display: inline-block;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(32, 201, 151, 0.1));
+            border-radius: 20px;
+            border: 1px solid rgba(13, 110, 253, 0.3);
+            font-weight: 500;
+        }
+        .copyright-footer .copyright-label i {
+            margin-left: 5px;
+            color: #0d6efd;
+        }
     </style>
 </head>
 <body>
@@ -485,6 +511,12 @@ base_html = """
             </div>
         </main>
     </div>
+    <footer class="copyright-footer">
+        <label class="copyright-label">
+            <i class="fas fa-copyright"></i>
+        شركة عراق تك- IraQ TecH للحلول البرمجية 07838657087
+        </label>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts %}{% endblock %}
 </body>
@@ -2651,7 +2683,7 @@ def get_champion_statuses():
     # 1. جلب جميع المعايير الديناميكية
     criteria = db.execute("SELECT id, key, video_type FROM rating_criteria").fetchall()
     criteria_map = {c['key']: c['id'] for c in criteria}
-    manhaji_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'منhaji'").fetchone()[0]
+    manhaji_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'منهجي'").fetchone()[0]
     ithrai_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'اثرائي'").fetchone()[0]
 
     if ithrai_criteria_count > 0:
