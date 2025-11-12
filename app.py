@@ -3460,9 +3460,27 @@ def upload_video():
             flash('حدث خطأ أثناء معالجة ملف الفيديو. قد يكون الملف تالفاً.', 'danger')
             return redirect(url_for('index'))
 
-        # 3. تطبيق حد الـ 60 ثانية
-        if duration > 60:
-            flash(f'خطأ: مدة الفيديو هي {int(duration)} ثانية. الحد الأقصى المسموح به هو 60 ثانية فقط.', 'danger')
+        # 3. تطبيق حد المدة (60 ثانية للمنهجي، 240 ثانية للإثرائي)
+        
+        # (هذا السطر موجود مسبقاً في الدالة، نحن فقط نستخدم المتغير)
+        # video_type = request.form.get('video_type')
+        
+        max_duration = 0
+        limit_message = ""
+
+        if video_type == 'منهجي':
+            max_duration = 60  # 1 دقيقة
+            limit_message = "60 ثانية (دقيقة واحدة)"
+        elif video_type == 'اثرائي':
+            max_duration = 240 # 4 دقائق
+            limit_message = "240 ثانية (4 دقائق)"
+        else:
+            # حالة احتياطية إذا كان نوع الفيديو غير معروف
+            flash('خطأ: نوع الفيديو المحدد غير صحيح.', 'danger')
+            return redirect(url_for('index'))
+
+        if duration > max_duration:
+            flash(f'خطأ: مدة الفيديو هي {int(duration)} ثانية. الحد الأقصى المسموح به لهذا النوع ({video_type}) هو {limit_message}.', 'danger')
             return redirect(url_for('index'))
 
         # 4. إذا كانت المدة مقبولة، أنشئ اسماً نهائياً وانقل الملف
@@ -3481,9 +3499,9 @@ def upload_video():
         db.commit()
 
         if is_approved == 0:
-            flash('تم رفع الفيديو بنجاح (أقل من 60 ثانية)، وهو الآن بانتظار موافقة المدير.', 'success')
+            flash(f'تم رفع الفيديو بنجاح (مدته {int(duration)} ثانية)، وهو الآن بانتظار موافقة المدير.', 'success')
         else:
-            flash('تم رفع الفيديو بنجاح (أقل من 60 ثانية)!', 'success')
+            flash(f'تم رفع الفيديو بنجاح (مدته {int(duration)} ثانية)!', 'success')
 
     finally:
         if os.path.exists(temp_filepath):
