@@ -775,16 +775,6 @@ index_content_block = """
             {# END: MODIFIED Star Display #}
         </div>
 
-        {# START: Delete button for video owner and admin #}
-        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
-        <div class="mt-2 mb-2">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
-                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
-            </form>
-        </div>
-        {% endif %}
-        {# END: Delete button #}
-
         {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
         <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
@@ -978,16 +968,6 @@ archive_content_block = """
                 {# ================== END DYNAMIC RATING MODIFICATION ================== #}
             </div>
         </div>
-
-        {# START: Delete button for video owner and admin #}
-        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
-        <div class="mt-2 mb-2">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
-                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
-            </form>
-        </div>
-        {% endif %}
-        {# END: Delete button #}
         
         {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
@@ -1726,16 +1706,6 @@ profile_content_block = """
                     <span class="badge bg-success mb-2"><i class="fas fa-check-circle me-1"></i>تمت الموافقة</span>
                 {% endif %}
                 {# END: NEW Moderation Block #}
-
-                {# START: Delete button for video owner and admin #}
-                {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
-                <div class="mb-2">
-                    <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
-                        <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
-                    </form>
-                </div>
-                {% endif %}
-                {# END: Delete button #}
 
                  <small><span class="badge bg-info">{{ video.video_type }}</span> <span class="text-muted ms-2">{{ video.timestamp | strftime('%Y-%m-%d') }}</span></small>
                 <div class="d-flex justify-content-between align-items-center mt-3">
@@ -3020,6 +2990,22 @@ def hash_device_fingerprint(fingerprint):
 def verify_device_binding(user_id, device_fingerprint):
     """Verify if device fingerprint matches user's bound device"""
     db = get_db()
+    # Get user role to check if admin
+    user = db.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
+    
+    # Admin can login from any device - skip device binding check
+    if user and user['role'] == 'admin':
+        # For admin, get or create a token but don't enforce device binding
+        binding = db.execute(
+            'SELECT auth_token FROM device_bindings WHERE user_id = ?',
+            (user_id,)
+        ).fetchone()
+        if binding:
+            return True, binding['auth_token']
+        # If no binding exists, return None to create one
+        return None, None
+    
+    # For students, enforce device binding
     binding = db.execute(
         'SELECT device_fingerprint, auth_token FROM device_bindings WHERE user_id = ?',
         (user_id,)
@@ -3036,18 +3022,28 @@ def verify_device_binding(user_id, device_fingerprint):
 def bind_device_to_user(user_id, device_fingerprint):
     """Bind device to user account"""
     db = get_db()
-    hashed_fingerprint = hash_device_fingerprint(device_fingerprint)
+    # Check if user is admin
+    user = db.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
+    
+    hashed_fingerprint = hash_device_fingerprint(device_fingerprint) if device_fingerprint != 'pending' else hash_device_fingerprint('pending')
     auth_token = generate_auth_token()
     
     # Check if user already has a binding
     existing = db.execute('SELECT id FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
     
     if existing:
-        # Update existing binding
-        db.execute(
-            'UPDATE device_bindings SET device_fingerprint = ?, auth_token = ?, last_used = CURRENT_TIMESTAMP WHERE user_id = ?',
-            (hashed_fingerprint, auth_token, user_id)
-        )
+        if user and user['role'] == 'admin':
+            # For admin, just update token and timestamp, keep device_fingerprint as is (allow multiple devices)
+            db.execute(
+                'UPDATE device_bindings SET auth_token = ?, last_used = CURRENT_TIMESTAMP WHERE user_id = ?',
+                (auth_token, user_id)
+            )
+        else:
+            # For students, update device fingerprint (one device only)
+            db.execute(
+                'UPDATE device_bindings SET device_fingerprint = ?, auth_token = ?, last_used = CURRENT_TIMESTAMP WHERE user_id = ?',
+                (hashed_fingerprint, auth_token, user_id)
+            )
     else:
         # Create new binding
         db.execute(
@@ -3075,6 +3071,9 @@ def get_user_by_token(auth_token):
     if binding:
         user = db.execute('SELECT * FROM users WHERE id = ?', (binding['user_id'],)).fetchone()
         return user
+    
+    # For admin, also check if token matches any admin token (for multi-device support)
+    # This allows admin to login even if device binding doesn't match
     return None
 
 def update_token_last_used(auth_token):
@@ -3306,13 +3305,31 @@ def auto_login():
     if not user:
         return jsonify({'status': 'error', 'message': 'Invalid token'}), 401
     
-    # Verify device fingerprint
-    is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
-    if not is_valid or stored_token != auth_token:
-        return jsonify({
-            'status': 'error', 
-            'message': 'هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.'
-        }), 403
+    # For admin, allow login from any device
+    if user['role'] == 'admin':
+        # Admin can login from any device - just verify token exists
+        db = get_db()
+        binding = db.execute(
+            'SELECT auth_token FROM device_bindings WHERE user_id = ? AND auth_token = ?',
+            (user['id'], auth_token)
+        ).fetchone()
+        if not binding:
+            # Create token for admin if doesn't exist
+            bind_device_to_user(user['id'], device_fingerprint)
+            binding = db.execute(
+                'SELECT auth_token FROM device_bindings WHERE user_id = ?',
+                (user['id'],)
+            ).fetchone()
+            if binding:
+                auth_token = binding['auth_token']
+    else:
+        # For students, verify device fingerprint strictly
+        is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
+        if not is_valid or stored_token != auth_token:
+            return jsonify({
+                'status': 'error', 
+                'message': 'هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.'
+            }), 403
     
     # Check suspension
     db = get_db()
@@ -3368,38 +3385,58 @@ def login():
                 flash(f'حسابك موقوف حتى {end_date_formatted}. السبب: {suspension["reason"]}', 'danger')
                 return render_page('login')
 
-            # Check device binding
-            if device_fingerprint:
-                is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
-                
-                if is_valid is False:  # Device exists but doesn't match
-                    flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
-                    return render_page('login')
-                
-                # If no binding exists (first login), create one
-                if is_valid is None:
-                    auth_token = bind_device_to_user(user['id'], device_fingerprint)
-                else:
-                    auth_token = stored_token
-                    update_token_last_used(auth_token)
-            else:
-                # If no fingerprint provided, check if account is already bound
-                binding = db.execute('SELECT id, device_fingerprint FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
-                if binding:
-                    # Check if binding is pending (first login case)
-                    if binding['device_fingerprint'] == hash_device_fingerprint('pending'):
-                        # Update with actual fingerprint if provided later
-                        if device_fingerprint:
-                            bind_device_to_user(user['id'], device_fingerprint)
-                            auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
-                        else:
-                            auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+            # Check device binding - Admin can login from any device, students are restricted
+            if user['role'] == 'admin':
+                # Admin: Allow login from any device, create/update token without device binding restriction
+                if device_fingerprint:
+                    # Create or update token for admin (device binding not enforced)
+                    binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                    if binding:
+                        auth_token = binding['auth_token']
+                        update_token_last_used(auth_token)
                     else:
+                        # Create token for admin
+                        auth_token = bind_device_to_user(user['id'], device_fingerprint)
+                else:
+                    # Get existing token or create new one
+                    binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                    if binding:
+                        auth_token = binding['auth_token']
+                    else:
+                        auth_token = bind_device_to_user(user['id'], 'pending')
+            else:
+                # Student: Enforce device binding (one device only)
+                if device_fingerprint:
+                    is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
+                    
+                    if is_valid is False:  # Device exists but doesn't match
                         flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
                         return render_page('login')
+                    
+                    # If no binding exists (first login), create one
+                    if is_valid is None:
+                        auth_token = bind_device_to_user(user['id'], device_fingerprint)
+                    else:
+                        auth_token = stored_token
+                        update_token_last_used(auth_token)
                 else:
-                    # First login without fingerprint - create binding with pending fingerprint
-                    auth_token = bind_device_to_user(user['id'], 'pending')
+                    # If no fingerprint provided, check if account is already bound
+                    binding = db.execute('SELECT id, device_fingerprint FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                    if binding:
+                        # Check if binding is pending (first login case)
+                        if binding['device_fingerprint'] == hash_device_fingerprint('pending'):
+                            # Update with actual fingerprint if provided later
+                            if device_fingerprint:
+                                bind_device_to_user(user['id'], device_fingerprint)
+                                auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                            else:
+                                auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                        else:
+                            flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
+                            return render_page('login')
+                    else:
+                        # First login without fingerprint - create binding with pending fingerprint
+                        auth_token = bind_device_to_user(user['id'], 'pending')
 
             session.clear()
             session['user_id'] = user['id']
