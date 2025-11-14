@@ -1198,6 +1198,12 @@ login_content_block = """
     
     // Auto-login function
     async function attemptAutoLogin() {
+        // Check if user manually logged out - if so, don't auto-login
+        if (localStorage.getItem('manual_logout') === 'true') {
+            document.getElementById('device_fingerprint').value = generateDeviceFingerprint();
+            return;
+        }
+        
         const deviceFingerprint = generateDeviceFingerprint();
         document.getElementById('device_fingerprint').value = deviceFingerprint;
         
@@ -1265,6 +1271,8 @@ login_content_block = """
     
     // Store token after successful login (handled by form submission)
     document.getElementById('loginForm').addEventListener('submit', function(e) {
+        // Remove manual logout flag when user manually logs in
+        localStorage.removeItem('manual_logout');
         // Token will be stored by server response cookie
         // This is just to ensure fingerprint is set
         document.getElementById('device_fingerprint').value = deviceFingerprint;
@@ -2351,6 +2359,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.dataset.id = user.id;
                 userItem.dataset.name = user.username;
                 const displayName = user.full_name || user.username;
+                userItem.dataset.displayName = displayName;
                 userItem.innerHTML = `
                     <div class="d-flex align-items-center">
                         <img src="${ "{{ url_for('uploaded_file', filename='FILL_IN') }}".replace('FILL_IN', user.profile_image || 'default.png') }" class="rounded-circle me-2" width="40" height="40">
@@ -2469,8 +2478,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type === 'user') {
             const userId = target.dataset.id;
             const userName = target.dataset.name;
+            const displayName = target.dataset.displayName || userName;
             currentConversation = { type: 'user', id: userId, name: userName, class: null, section: null };
-            chatWithName.textContent = userName;
+            chatWithName.textContent = displayName;
             chatWithInfo.textContent = 'محادثة فردية';
 
             fetchMessages(userId);
@@ -3392,8 +3402,42 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    # Clear auth token from cookie
-    response = make_response(redirect(url_for('login')))
+    # Clear auth token from cookie and add script to clear all tokens and set manual logout flag
+    response_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>تسجيل الخروج...</title>
+    </head>
+    <body>
+        <script>
+            // Clear all tokens
+            localStorage.removeItem('auth_token');
+            
+            // Set manual logout flag to prevent auto-login
+            localStorage.setItem('manual_logout', 'true');
+            
+            // Clear IndexedDB
+            if ('indexedDB' in window) {
+                const request = indexedDB.open('AuthDB', 1);
+                request.onsuccess = function(event) {
+                    const db = event.target.result;
+                    if (db.objectStoreNames.contains('tokens')) {
+                        const transaction = db.transaction(['tokens'], 'readwrite');
+                        const store = transaction.objectStore('tokens');
+                        store.delete('auth_token');
+                    }
+                };
+            }
+            
+            // Redirect to login
+            window.location.href = '/login';
+        </script>
+    </body>
+    </html>
+    """
+    response = make_response(response_html)
     response.set_cookie('auth_token', '', expires=0)
     return response
 
