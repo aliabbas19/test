@@ -2351,7 +2351,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.dataset.id = user.id;
                 userItem.dataset.name = user.username;
                 const displayName = user.full_name || user.username;
-                userItem.dataset.displayName = displayName;
                 userItem.innerHTML = `
                     <div class="d-flex align-items-center">
                         <img src="${ "{{ url_for('uploaded_file', filename='FILL_IN') }}".replace('FILL_IN', user.profile_image || 'default.png') }" class="rounded-circle me-2" width="40" height="40">
@@ -2470,9 +2469,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type === 'user') {
             const userId = target.dataset.id;
             const userName = target.dataset.name;
-            const displayName = target.dataset.displayName || userName;
             currentConversation = { type: 'user', id: userId, name: userName, class: null, section: null };
-            chatWithName.textContent = displayName;
+            chatWithName.textContent = userName;
             chatWithInfo.textContent = 'محادثة فردية';
 
             fetchMessages(userId);
