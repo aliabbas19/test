@@ -3371,7 +3371,7 @@ def auto_login():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         password = request.form['password']
         device_fingerprint = request.form.get('device_fingerprint', '')
         
@@ -3388,22 +3388,15 @@ def login():
             # Check device binding - Admin can login from any device, students are restricted
             if user['role'] == 'admin':
                 # Admin: Allow login from any device, create/update token without device binding restriction
-                if device_fingerprint:
-                    # Create or update token for admin (device binding not enforced)
-                    binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
-                    if binding:
-                        auth_token = binding['auth_token']
-                        update_token_last_used(auth_token)
-                    else:
-                        # Create token for admin
-                        auth_token = bind_device_to_user(user['id'], device_fingerprint)
+                # For admin, we don't enforce device binding - just ensure token exists
+                binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                if binding:
+                    auth_token = binding['auth_token']
+                    update_token_last_used(auth_token)
                 else:
-                    # Get existing token or create new one
-                    binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
-                    if binding:
-                        auth_token = binding['auth_token']
-                    else:
-                        auth_token = bind_device_to_user(user['id'], 'pending')
+                    # Create token for admin (use device_fingerprint if provided, otherwise 'pending')
+                    fingerprint = device_fingerprint if device_fingerprint else 'pending'
+                    auth_token = bind_device_to_user(user['id'], fingerprint)
             else:
                 # Student: Enforce device binding (one device only)
                 if device_fingerprint:
