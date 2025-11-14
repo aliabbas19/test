@@ -1,8 +1,11 @@
 import sqlite3
 import os
 import av
+import hashlib
+import secrets
+import json
 # --- تعديل 1: إضافة send_from_directory ---
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify, send_from_directory, abort
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify, send_from_directory, abort, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from collections import defaultdict
@@ -668,7 +671,7 @@ index_content_block = """
                     <div class="card-body d-flex flex-column align-items-center">
                         <a href="{{ url_for('profile', username=champion.username) }}" class="text-decoration-none">
                             <img src="{{ url_for('uploaded_file', filename=(champion.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle mb-3" width="100" height="100" style="border: 4px solid #0d6efd; object-fit: cover;">
-                            <h5 class="card-title text-primary">{{ champion.username }}</h5>
+                            <h5 class="card-title text-primary">{{ champion.full_name or champion.username }}</h5>
                         </a>
                         <span class="superhero-status mt-2 fs-6">
                             <i class="fas fa-meteor me-1"></i> بطل خارق
@@ -694,7 +697,7 @@ index_content_block = """
             <span class="admin-username-gradient fs-2"><i class="fas fa-bullhorn"></i></span>
         </div>
         <div class="info">
-            <span class="admin-username-gradient fw-bold">{{ post.username }}</span>
+            <span class="admin-username-gradient fw-bold">{{ post.full_name or post.username }}</span>
             <small class="text-muted">إعلان إداري</small>
         </div>
     </div>
@@ -718,9 +721,9 @@ index_content_block = """
             <div class="ms-3">
                 <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
                     {% if video.role == 'admin' %}
-                        <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ video.username }}</span>
+                        <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ video.full_name or video.username }}</span>
                     {% else %}
-                        <span class="text-primary">{{ video.username }}</span>
+                        <span class="text-primary">{{ video.full_name or video.username }}</span>
                     {% endif %}
                 </a>
 
@@ -816,9 +819,9 @@ index_content_block = """
                             <p class="comment-author fw-bold mb-0">
                                 {% if comment.is_pinned %}<i class="fas fa-thumbtack text-primary me-2" title="تعليق مثبت"></i>{% endif %}
                                 {% if comment.role == 'admin' %}
-                                    <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.username }}</span>
+                                    <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.full_name or comment.username }}</span>
                                 {% else %}
-                                    <span class="text-primary">{{ comment.username }}</span>
+                                    <span class="text-primary">{{ comment.full_name or comment.username }}</span>
                                 {% endif %}
                             </p>
                             <div class="comment-actions">
@@ -905,9 +908,9 @@ archive_content_block = """
             <div class="ms-3">
                 <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
                     {% if video.role == 'admin' %}
-                        <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ video.username }}</span>
+                        <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ video.full_name or video.username }}</span>
                     {% else %}
-                        <span class="text-primary">{{ video.username }}</span>
+                        <span class="text-primary">{{ video.full_name or video.username }}</span>
                     {% endif %}
                 </a>
 
@@ -992,9 +995,9 @@ archive_content_block = """
                             <p class="comment-author fw-bold mb-0">
                                 {% if comment.is_pinned %}<i class="fas fa-thumbtack text-primary me-2" title="تعليق مثبت"></i>{% endif %}
                                 {% if comment.role == 'admin' %}
-                                    <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.username }}</span>
+                                    <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.full_name or comment.username }}</span>
                                 {% else %}
-                                    <span class="text-primary">{{ comment.username }}</span>
+                                    <span class="text-primary">{{ comment.full_name or comment.username }}</span>
                                 {% endif %}
                             </p>
                             <div class="comment-actions">
@@ -1034,7 +1037,8 @@ login_content_block = """
         <div class="card shadow-sm">
             <div class="card-header"><h3>تسجيل الدخول</h3></div>
             <div class="card-body">
-                <form method="post">
+                <form method="post" id="loginForm">
+                    <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="">
                     <div class="mb-3">
                         <label for="username" class="form-label">اسم المستخدم</label>
                         <input type="text" class="form-control" id="username" name="username" required>
@@ -1049,6 +1053,224 @@ login_content_block = """
         </div>
     </div>
 </div>
+
+<script>
+// Device Fingerprinting and Auto-Login System
+(function() {
+    'use strict';
+    
+    // Generate Device Fingerprint
+    function generateDeviceFingerprint() {
+        const components = [];
+        
+        // User-Agent
+        components.push(navigator.userAgent || '');
+        
+        // Screen properties
+        components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+        
+        // Timezone
+        components.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        
+        // Language
+        components.push(navigator.language || '');
+        components.push(navigator.languages ? navigator.languages.join(',') : '');
+        
+        // Hardware entropy (platform, hardwareConcurrency, deviceMemory)
+        components.push(navigator.platform || '');
+        components.push(navigator.hardwareConcurrency || '');
+        if (navigator.deviceMemory) components.push(navigator.deviceMemory);
+        
+        // Canvas fingerprint
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Device fingerprint', 2, 2);
+            components.push(canvas.toDataURL());
+        } catch(e) {
+            components.push('canvas-error');
+        }
+        
+        // WebGL fingerprint
+        try {
+            const gl = document.createElement('canvas').getContext('webgl');
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+                    components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+                }
+            }
+        } catch(e) {
+            components.push('webgl-error');
+        }
+        
+        // Local Storage key (persistent identifier)
+        let storageKey = localStorage.getItem('device_id');
+        if (!storageKey) {
+            storageKey = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('device_id', storageKey);
+        }
+        components.push(storageKey);
+        
+        // Hash the fingerprint
+        const fingerprintString = components.join('|');
+        return btoa(fingerprintString).replace(/[^a-zA-Z0-9]/g, '').substring(0, 128);
+    }
+    
+    // Store token in multiple places
+    function storeAuthToken(token) {
+        // localStorage
+        localStorage.setItem('auth_token', token);
+        
+        // IndexedDB
+        if ('indexedDB' in window) {
+            const request = indexedDB.open('AuthDB', 1);
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('tokens')) {
+                    db.createObjectStore('tokens');
+                }
+            };
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['tokens'], 'readwrite');
+                const store = transaction.objectStore('tokens');
+                store.put(token, 'auth_token');
+            };
+        }
+        
+        // Cookie is set by server
+    }
+    
+    // Get token from storage
+    function getAuthToken() {
+        // Try localStorage first
+        let token = localStorage.getItem('auth_token');
+        if (token) return token;
+        
+        // Try IndexedDB
+        if ('indexedDB' in window) {
+            return new Promise((resolve) => {
+                const request = indexedDB.open('AuthDB', 1);
+                request.onsuccess = function(event) {
+                    const db = event.target.result;
+                    if (db.objectStoreNames.contains('tokens')) {
+                        const transaction = db.transaction(['tokens'], 'readonly');
+                        const store = transaction.objectStore('tokens');
+                        const getRequest = store.get('auth_token');
+                        getRequest.onsuccess = function() {
+                            resolve(getRequest.result || null);
+                        };
+                        getRequest.onerror = function() {
+                            resolve(null);
+                        };
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = function() {
+                    resolve(null);
+                };
+            });
+        }
+        
+        return null;
+    }
+    
+    // Clear all tokens
+    function clearAuthToken() {
+        localStorage.removeItem('auth_token');
+        if ('indexedDB' in window) {
+            const request = indexedDB.open('AuthDB', 1);
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                if (db.objectStoreNames.contains('tokens')) {
+                    const transaction = db.transaction(['tokens'], 'readwrite');
+                    const store = transaction.objectStore('tokens');
+                    store.delete('auth_token');
+                }
+            };
+        }
+    }
+    
+    // Auto-login function
+    async function attemptAutoLogin() {
+        const deviceFingerprint = generateDeviceFingerprint();
+        document.getElementById('device_fingerprint').value = deviceFingerprint;
+        
+        let authToken = null;
+        const tokenResult = getAuthToken();
+        if (tokenResult instanceof Promise) {
+            authToken = await tokenResult;
+        } else {
+            authToken = tokenResult;
+        }
+        
+        if (!authToken) {
+            // No token, show login form (fingerprint already set)
+            return;
+        }
+        
+        // Try auto-login
+        fetch('/auto-login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                device_fingerprint: deviceFingerprint,
+                auth_token: authToken
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Store token if provided
+                if (data.auth_token) {
+                    storeAuthToken(data.auth_token);
+                }
+                
+                // Auto-login successful
+                if (data.needs_profile) {
+                    window.location.href = data.redirect || '/';
+                } else if (data.needs_reset) {
+                    window.location.href = data.redirect || '/';
+                } else {
+                    window.location.href = data.redirect || '/';
+                }
+            } else {
+                // Auto-login failed, clear token and show login form
+                clearAuthToken();
+                document.getElementById('device_fingerprint').value = deviceFingerprint;
+                if (data.message) {
+                    alert(data.message);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Auto-login error:', error);
+            document.getElementById('device_fingerprint').value = deviceFingerprint;
+        });
+    }
+    
+    // Initialize device fingerprint on page load
+    const deviceFingerprint = generateDeviceFingerprint();
+    document.getElementById('device_fingerprint').value = deviceFingerprint;
+    
+    // Attempt auto-login on page load
+    attemptAutoLogin();
+    
+    // Store token after successful login (handled by form submission)
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        // Token will be stored by server response cookie
+        // This is just to ensure fingerprint is set
+        document.getElementById('device_fingerprint').value = deviceFingerprint;
+    });
+})();
+</script>
 """
 
 # ----------------- MODIFIED admin_dashboard_content_block -----------------
@@ -1124,7 +1346,7 @@ admin_dashboard_content_block = """
                     {% for student in students %}
                     <tr>
                         <td>
-                           <a href="{{ url_for('profile', username=student.username) }}">{{ student.username }}</a>
+                           <a href="{{ url_for('profile', username=student.username) }}">{{ student.full_name or student.username }}</a>
                         </td>
                         <td>
                             {% if student.end_date %}
@@ -1149,6 +1371,7 @@ admin_dashboard_content_block = """
                                         <button type="submit" class="btn btn-sm btn-secondary">كتم</button>
                                     {% endif %}
                                 </form>
+                                <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">إلغاء ربط الجهاز</button>
                                 {% if student.end_date %}
                                     <form action="{{ url_for('lift_suspension', student_id=student.id) }}" method="post" class="d-inline">
                                         <button type="submit" class="btn btn-sm btn-success">رفع الإيقاف</button>
@@ -1176,6 +1399,34 @@ admin_dashboard_content_block = """
         </div>
     </div>
 </div>
+
+<script>
+function unbindDevice(userId) {
+    if (!confirm('هل أنت متأكد من إلغاء ربط الجهاز لهذا المستخدم؟ سيتمكن المستخدم من تسجيل الدخول من جهاز جديد.')) {
+        return;
+    }
+    
+    fetch('/admin/unbind_device/' + userId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('تم إلغاء ربط الجهاز بنجاح');
+            location.reload();
+        } else {
+            alert('حدث خطأ: ' + (data.error || 'غير معروف'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء إلغاء ربط الجهاز');
+    });
+}
+</script>
 """
 
 # ----------------- MODIFIED reports_content_block -----------------
@@ -1210,7 +1461,7 @@ reports_content_block = """
         {% for student in report_data %}
         <div class="card mb-4 shadow-sm">
             <div class="card-header">
-                <h4>الطالب: {{ student.username }}</h4>
+                <h4>الطالب: {{ student.full_name or student.username }}</h4>
                 <p class="mb-0 small text-muted">الصف: {{ student.class_name or 'غير محدد' }} | الشعبة: {{ student.section_name or 'غير محدد' }}</p>
             </div>
             <div class="card-body">
@@ -1345,10 +1596,9 @@ profile_content_block = """
         <img src="{{ url_for('uploaded_file', filename=user.profile_image) }}" alt="Profile Image" class="rounded-circle" width="150" height="150" style="border: 4px solid #0d6efd;">
         <div class="profile-info ms-4">
             {% if user.role == 'admin' %}
-                <h1 class="admin-username-gradient"><i class="fas fa-crown"></i> {{ user.username }}</h1>
+                <h1 class="admin-username-gradient"><i class="fas fa-crown"></i> {{ user.full_name or user.username }}</h1>
             {% else %}
-                <h1 class="text-primary">{{ user.username }}</h1>
-                 <h4 class="text-muted fw-light">{{ user.full_name or '' }}</h4>
+                <h1 class="text-primary">{{ user.full_name or user.username }}</h1>
             {% endif %}
             <p class="text-muted">الصف: {{ user.class_name or 'غير محدد' }} | الشعبة: {{ user.section_name or 'غير محدد' }}</p>
 
@@ -1396,7 +1646,7 @@ profile_content_block = """
 </div>
 {% endif %}
 <hr style="border-color: rgba(0,0,0,0.1);">
-<h2 class="mb-4 text-center">مقاطع الفيديو الخاصة بـ {{ user.username }}</h2>
+<h2 class="mb-4 text-center">مقاطع الفيديو الخاصة بـ {{ user.full_name or user.username }}</h2>
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for video in videos %}
     <div class="col">
@@ -1488,9 +1738,9 @@ profile_content_block = """
                                     <p class="comment-author fw-bold mb-0">
                                         {% if comment.is_pinned %}<i class="fas fa-thumbtack text-primary me-2" title="تعليق مثبت"></i>{% endif %}
                                         {% if comment.role == 'admin' %}
-                                            <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.username }}</span>
+                                            <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.full_name or comment.username }}</span>
                                         {% else %}
-                                            <span class="text-primary">{{ comment.username }}</span>
+                                            <span class="text-primary">{{ comment.full_name or comment.username }}</span>
                                         {% endif %}
                                     </p>
                                     <div class="comment-actions">
@@ -1521,7 +1771,7 @@ profile_content_block = """
         </div>
     </div>
     {% else %}
-    <p class="text-center text-muted">{{ user.username }} لم يقم بنشر أي مقاطع فيديو بعد.</p>
+    <p class="text-center text-muted">{{ user.full_name or user.username }} لم يقم بنشر أي مقاطع فيديو بعد.</p>
     {% endfor %}
 </div>
 """
@@ -1574,7 +1824,7 @@ students_content_block = """
         <div class="card h-100 shadow-sm text-center">
             <div class="card-body d-flex flex-column align-items-center">
                 <img src="{{ url_for('uploaded_file', filename=(student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle mb-3" width="100" height="100" style="border: 3px solid #0d6efd; object-fit: cover;">
-                <h5 class="card-title text-primary">{{ student.username }}</h5>
+                <h5 class="card-title text-primary">{{ student.full_name or student.username }}</h5>
                 <p class="card-text text-muted">
                     {{ student.class_name or 'صف غير محدد' }} - {{ student.section_name or 'شعبة غير محددة' }}
                 </p>
@@ -1802,7 +2052,7 @@ video_review_content_block = """
                      <img src="{{ url_for('uploaded_file', filename=(video.profile_image or 'default.png')) }}" alt="Avatar" class="rounded-circle" width="50" height="50">
                     <div class="ms-3">
                         <a href="{{ url_for('profile', username=video.username) }}" class="text-decoration-none h5">
-                            <span class="text-primary">{{ video.username }}</span>
+                            <span class="text-primary">{{ video.full_name or video.username }}</span>
                         </a>
                          <small class="d-block"><span class="badge bg-info">{{ video.video_type }}</span> <span class="text-muted ms-2">{{ video.timestamp | strftime }}</span></small>
                     </div>
@@ -1888,9 +2138,9 @@ video_review_content_block = """
                                     <p class="comment-author fw-bold mb-0">
                                         {% if comment.is_pinned %}<i class="fas fa-thumbtack text-primary me-2" title="تعليق مثبت"></i>{% endif %}
                                         {% if comment.role == 'admin' %}
-                                            <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.username }}</span>
+                                            <span class="admin-username-gradient"><i class="fas fa-crown"></i> {{ comment.full_name or comment.username }}</span>
                                         {% else %}
-                                            <span class="text-primary">{{ comment.username }}</span>
+                                            <span class="text-primary">{{ comment.full_name or comment.username }}</span>
                                         {% endif %}
                                     </p>
                                     <div class="comment-actions">
@@ -2100,11 +2350,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 userItem.dataset.type = 'user';
                 userItem.dataset.id = user.id;
                 userItem.dataset.name = user.username;
+                const displayName = user.full_name || user.username;
                 userItem.innerHTML = `
                     <div class="d-flex align-items-center">
                         <img src="${ "{{ url_for('uploaded_file', filename='FILL_IN') }}".replace('FILL_IN', user.profile_image || 'default.png') }" class="rounded-circle me-2" width="40" height="40">
                         <div>
-                            <div>${user.username}</div>
+                            <div>${displayName}</div>
                             <small class="text-muted">${user.class_name || ''} - ${user.section_name || ''}</small>
                         </div>
                     </div>`;
@@ -2601,6 +2852,17 @@ def init_db():
                 FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
                 FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
             )''') # إضافة ON DELETE CASCADE
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS device_bindings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                device_fingerprint TEXT NOT NULL,
+                auth_token TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_used DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )''')
         
         # --- إضافة المعايير الافتراضية (القديمة) إلى الجدول الجديد ---
         cursor.execute("SELECT COUNT(id) FROM rating_criteria")
@@ -2673,6 +2935,85 @@ def init_db():
         print("Database structure is ready.")
 
 # ----------------- HELPER FUNCTIONS -----------------
+
+# ================== START: DEVICE BINDING FUNCTIONS ==================
+def generate_auth_token():
+    """Generate a secure random token"""
+    return secrets.token_urlsafe(32)
+
+def hash_device_fingerprint(fingerprint):
+    """Hash device fingerprint for storage"""
+    return hashlib.sha256(fingerprint.encode()).hexdigest()
+
+def verify_device_binding(user_id, device_fingerprint):
+    """Verify if device fingerprint matches user's bound device"""
+    db = get_db()
+    binding = db.execute(
+        'SELECT device_fingerprint, auth_token FROM device_bindings WHERE user_id = ?',
+        (user_id,)
+    ).fetchone()
+    
+    if not binding:
+        return None, None
+    
+    hashed_fingerprint = hash_device_fingerprint(device_fingerprint)
+    if binding['device_fingerprint'] == hashed_fingerprint:
+        return True, binding['auth_token']
+    return False, None
+
+def bind_device_to_user(user_id, device_fingerprint):
+    """Bind device to user account"""
+    db = get_db()
+    hashed_fingerprint = hash_device_fingerprint(device_fingerprint)
+    auth_token = generate_auth_token()
+    
+    # Check if user already has a binding
+    existing = db.execute('SELECT id FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
+    
+    if existing:
+        # Update existing binding
+        db.execute(
+            'UPDATE device_bindings SET device_fingerprint = ?, auth_token = ?, last_used = CURRENT_TIMESTAMP WHERE user_id = ?',
+            (hashed_fingerprint, auth_token, user_id)
+        )
+    else:
+        # Create new binding
+        db.execute(
+            'INSERT INTO device_bindings (user_id, device_fingerprint, auth_token) VALUES (?, ?, ?)',
+            (user_id, hashed_fingerprint, auth_token)
+        )
+    
+    db.commit()
+    return auth_token
+
+def unbind_device(user_id):
+    """Unbind device from user account (admin only)"""
+    db = get_db()
+    db.execute('DELETE FROM device_bindings WHERE user_id = ?', (user_id,))
+    db.commit()
+
+def get_user_by_token(auth_token):
+    """Get user by auth token"""
+    db = get_db()
+    binding = db.execute(
+        'SELECT user_id FROM device_bindings WHERE auth_token = ?',
+        (auth_token,)
+    ).fetchone()
+    
+    if binding:
+        user = db.execute('SELECT * FROM users WHERE id = ?', (binding['user_id'],)).fetchone()
+        return user
+    return None
+
+def update_token_last_used(auth_token):
+    """Update last used timestamp for token"""
+    db = get_db()
+    db.execute(
+        'UPDATE device_bindings SET last_used = CURRENT_TIMESTAMP WHERE auth_token = ?',
+        (auth_token,)
+    )
+    db.commit()
+# ================== END: DEVICE BINDING FUNCTIONS ==================
 
 # ================== START: MODIFIED get_champion_statuses ==================
 def get_champion_statuses():
@@ -2782,7 +3123,7 @@ def get_superhero_champions_details():
 
     # 2. جلب المستخدمين الفريدين الذين لديهم فيديو واحد على الأقل بتقييم كامل
     superhero_query = """
-        SELECT DISTINCT u.id, u.username, u.profile_image
+        SELECT DISTINCT u.id, u.username, u.full_name, u.profile_image
         FROM users u
         WHERE u.id IN (
             -- Subquery to find user_ids who have a perfect 'اثرائي' video this month
@@ -2817,6 +3158,10 @@ app.jinja_env.filters['strftime'] = format_datetime
 
 @app.before_request
 def before_request_handler():
+    # Allow auto-login endpoint without session check
+    if request.endpoint == 'auto_login':
+        return None
+    
     # Session revocation and profile completion check
     if 'user_id' in session and 'token' in session:
         db = get_db()
@@ -2874,11 +3219,73 @@ def before_request_handler():
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
+@app.route('/auto-login', methods=['POST'])
+def auto_login():
+    """Auto-login endpoint that checks device fingerprint and token"""
+    data = request.get_json()
+    device_fingerprint = data.get('device_fingerprint')
+    auth_token = data.get('auth_token')
+    
+    if not device_fingerprint or not auth_token:
+        return jsonify({'status': 'error', 'message': 'Missing credentials'}), 400
+    
+    # Get user by token
+    user = get_user_by_token(auth_token)
+    if not user:
+        return jsonify({'status': 'error', 'message': 'Invalid token'}), 401
+    
+    # Verify device fingerprint
+    is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
+    if not is_valid or stored_token != auth_token:
+        return jsonify({
+            'status': 'error', 
+            'message': 'هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.'
+        }), 403
+    
+    # Check suspension
+    db = get_db()
+    suspension = db.execute('SELECT * FROM suspensions WHERE user_id = ? AND end_date > ?', (user['id'], datetime.now())).fetchone()
+    if suspension:
+        end_date_formatted = suspension["end_date"].split('.')[0]
+        return jsonify({
+            'status': 'error',
+            'message': f'حسابك موقوف حتى {end_date_formatted}. السبب: {suspension["reason"]}'
+        }), 403
+    
+    # Update token last used
+    update_token_last_used(auth_token)
+    
+    # Create session
+    session.clear()
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    session['role'] = user['role']
+    session['token'] = user['session_revocation_token']
+    
+    # Determine redirect URL
+    redirect_url = url_for('index')
+    if user['role'] == 'student' and not user['is_profile_complete']:
+        redirect_url = url_for('edit_user', user_id=user['id'])
+    elif user['role'] == 'student' and user.get('profile_reset_required', 0):
+        redirect_url = url_for('edit_user', user_id=user['id'])
+    
+    response = jsonify({
+        'status': 'success',
+        'redirect': redirect_url,
+        'needs_profile': user['role'] == 'student' and not user['is_profile_complete'],
+        'needs_reset': user['role'] == 'student' and user.get('profile_reset_required', 0),
+        'auth_token': auth_token
+    })
+    response.set_cookie('auth_token', auth_token, max_age=31536000, httponly=True, samesite='Lax', secure=False)
+    return response
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        device_fingerprint = request.form.get('device_fingerprint', '')
+        
         db = get_db()
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
 
@@ -2889,21 +3296,94 @@ def login():
                 flash(f'حسابك موقوف حتى {end_date_formatted}. السبب: {suspension["reason"]}', 'danger')
                 return render_page('login')
 
+            # Check device binding
+            if device_fingerprint:
+                is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
+                
+                if is_valid is False:  # Device exists but doesn't match
+                    flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
+                    return render_page('login')
+                
+                # If no binding exists (first login), create one
+                if is_valid is None:
+                    auth_token = bind_device_to_user(user['id'], device_fingerprint)
+                else:
+                    auth_token = stored_token
+                    update_token_last_used(auth_token)
+            else:
+                # If no fingerprint provided, check if account is already bound
+                binding = db.execute('SELECT id, device_fingerprint FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                if binding:
+                    # Check if binding is pending (first login case)
+                    if binding['device_fingerprint'] == hash_device_fingerprint('pending'):
+                        # Update with actual fingerprint if provided later
+                        if device_fingerprint:
+                            bind_device_to_user(user['id'], device_fingerprint)
+                            auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                        else:
+                            auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                    else:
+                        flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
+                        return render_page('login')
+                else:
+                    # First login without fingerprint - create binding with pending fingerprint
+                    auth_token = bind_device_to_user(user['id'], 'pending')
+
             session.clear()
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
             session['token'] = user['session_revocation_token']
-
+            
+            # Store auth token in response cookie and pass to template for localStorage
+            redirect_url = url_for('index')
             if user['role'] == 'student' and not user['is_profile_complete']:
                 flash('مرحباً بك! يرجى إكمال معلومات ملفك الشخصي للمتابعة.', 'info')
-                return redirect(url_for('edit_user', user_id=user['id']))
-
-            if user['role'] == 'student' and user['profile_reset_required']:
+                redirect_url = url_for('edit_user', user_id=user['id'])
+            elif user['role'] == 'student' and user['profile_reset_required']:
                 flash('سنة دراسية جديدة! يرجى تحديث الصف والشعبة للمتابعة.', 'info')
-                return redirect(url_for('edit_user', user_id=user['id']))
-
-            return redirect(url_for('index'))
+                redirect_url = url_for('edit_user', user_id=user['id'])
+            
+            # Create response with token storage script
+            response_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>تسجيل الدخول...</title>
+            </head>
+            <body>
+                <script>
+                    // Store token in multiple places
+                    const token = '{auth_token}';
+                    localStorage.setItem('auth_token', token);
+                    
+                    // Store in IndexedDB
+                    if ('indexedDB' in window) {{
+                        const request = indexedDB.open('AuthDB', 1);
+                        request.onupgradeneeded = function(event) {{
+                            const db = event.target.result;
+                            if (!db.objectStoreNames.contains('tokens')) {{
+                                db.createObjectStore('tokens');
+                            }}
+                        }};
+                        request.onsuccess = function(event) {{
+                            const db = event.target.result;
+                            const transaction = db.transaction(['tokens'], 'readwrite');
+                            const store = transaction.objectStore('tokens');
+                            store.put(token, 'auth_token');
+                        }};
+                    }}
+                    
+                    // Redirect
+                    window.location.href = '{redirect_url}';
+                </script>
+            </body>
+            </html>
+            """
+            response = make_response(response_html)
+            response.set_cookie('auth_token', auth_token, max_age=31536000, httponly=True, samesite='Lax', secure=False)
+            return response
         else:
             flash('اسم المستخدم أو كلمة المرور غير صحيحة!', 'danger')
 
@@ -2912,7 +3392,20 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    # Clear auth token from cookie
+    response = make_response(redirect(url_for('login')))
+    response.set_cookie('auth_token', '', expires=0)
+    return response
+
+@app.route('/admin/unbind_device/<int:user_id>', methods=['POST'])
+def admin_unbind_device(user_id):
+    """Admin route to unbind device from user account"""
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    unbind_device(user_id)
+    flash('تم إلغاء ربط الجهاز بنجاح. يمكن للمستخدم الآن تسجيل الدخول من جهاز جديد.', 'success')
+    return jsonify({"status": "success", "message": "تم إلغاء ربط الجهاز بنجاح"})
 # ================== START: MODIFIED get_common_video_data ==================
 def get_common_video_data(video_ids):
     db = get_db()
@@ -2981,7 +3474,7 @@ def get_common_video_data(video_ids):
 
     # 5. جلب التعليقات (نفس الكود القديم)
     comments_data = db.execute(f'''
-        SELECT c.id, c.content, c.video_id, c.parent_id, c.timestamp, u.username, u.role, u.profile_image, c.user_id, c.is_pinned
+        SELECT c.id, c.content, c.video_id, c.parent_id, c.timestamp, u.username, u.full_name, u.role, u.profile_image, c.user_id, c.is_pinned
         FROM comments c JOIN users u ON c.user_id = u.id
         WHERE c.video_id IN ({placeholders}) ORDER BY c.is_pinned DESC, c.timestamp ASC
     ''', video_ids).fetchall()
@@ -3172,12 +3665,12 @@ def index():
         all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
         all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
 
-    posts = db.execute('SELECT p.content, p.timestamp, u.username FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
+    posts = db.execute('SELECT p.content, p.timestamp, u.username, u.full_name FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
     cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
 
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.timestamp >= ? AND v.is_approved = 1
     '''
@@ -3239,7 +3732,7 @@ def archive():
 
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.timestamp < ? AND v.is_approved = 1
     '''
@@ -3721,7 +4214,7 @@ def students():
     all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
     all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
 
-    query = "SELECT id, username, profile_image, class_name, section_name FROM users WHERE role = 'student'"
+    query = "SELECT id, username, full_name, profile_image, class_name, section_name FROM users WHERE role = 'student'"
     params = []
 
     if selected_class:
@@ -4106,7 +4599,7 @@ def api_get_users():
     section_name = request.args.get('section_name', '')
     search_name = request.args.get('search_name', '')
 
-    query = "SELECT id, username, profile_image, class_name, section_name FROM users WHERE role = 'student'"
+    query = "SELECT id, username, full_name, profile_image, class_name, section_name FROM users WHERE role = 'student'"
     params = []
 
     if class_name:
