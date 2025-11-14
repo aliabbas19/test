@@ -3377,8 +3377,18 @@ def login():
         
         db = get_db()
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        
+        # Debug: Check if user exists and password verification
+        if not user:
+            flash('اسم المستخدم غير موجود!', 'danger')
+            return render_page('login')
+        
+        password_valid = check_password_hash(user['password'], password)
+        if not password_valid:
+            flash('كلمة المرور غير صحيحة!', 'danger')
+            return render_page('login')
 
-        if user and check_password_hash(user['password'], password):
+        if user and password_valid:
             suspension = db.execute('SELECT * FROM suspensions WHERE user_id = ? AND end_date > ?', (user['id'], datetime.now())).fetchone()
             if suspension:
                 end_date_formatted = suspension["end_date"].split('.')[0]
@@ -3490,6 +3500,27 @@ def login():
             flash('اسم المستخدم أو كلمة المرور غير صحيحة!', 'danger')
 
     return render_page('login')
+
+@app.route('/reset_admin_password', methods=['GET', 'POST'])
+def reset_admin_password():
+    """Temporary route to reset admin password - REMOVE IN PRODUCTION"""
+    if request.method == 'POST':
+        db = get_db()
+        # Reset admin password to 'admin123'
+        hashed_password = generate_password_hash('admin123')
+        admin = db.execute('SELECT id FROM users WHERE username = ? AND role = ?', ('admin', 'admin')).fetchone()
+        if admin:
+            db.execute('UPDATE users SET password = ? WHERE username = ? AND role = ?', 
+                      (hashed_password, 'admin', 'admin'))
+            db.commit()
+            return jsonify({'status': 'success', 'message': 'تم إعادة تعيين كلمة مرور المدير إلى admin123'})
+        else:
+            return jsonify({'status': 'error', 'message': 'المدير غير موجود'})
+    return '''
+    <form method="POST">
+        <button type="submit">إعادة تعيين كلمة مرور المدير إلى admin123</button>
+    </form>
+    '''
 
 @app.route('/logout')
 def logout():
