@@ -775,6 +775,16 @@ index_content_block = """
             {# END: MODIFIED Star Display #}
         </div>
 
+        {# START: Delete button for video owner and admin #}
+        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+        <div class="mt-2 mb-2">
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+            </form>
+        </div>
+        {% endif %}
+        {# END: Delete button #}
+
         {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
         <form class="rating-form p-3 mt-3 rounded bg-light" data-video-id="{{ video.id }}" data-video-type="{{ video.video_type }}">
@@ -936,6 +946,17 @@ archive_content_block = """
             </video>
         </div>
         {# END: MODIFICATION #}
+
+        {# START: Delete button for video owner and admin - directly under video #}
+        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+        <div class="mt-2 mb-2 text-center">
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+            </form>
+        </div>
+        {% endif %}
+        {# END: Delete button #}
+
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
                 <button class="btn btn-link text-secondary like-btn {% if video.id in user_liked_videos %}text-danger{% endif %}" data-video-id="{{ video.id }}"><i class="fas fa-heart fa-lg"></i></button>
@@ -957,6 +978,16 @@ archive_content_block = """
                 {# ================== END DYNAMIC RATING MODIFICATION ================== #}
             </div>
         </div>
+
+        {# START: Delete button for video owner and admin #}
+        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+        <div class="mt-2 mb-2">
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+            </form>
+        </div>
+        {% endif %}
+        {# END: Delete button #}
         
         {# ================== START: DYNAMIC RATING FORM MODIFICATION ================== #}
         {% if session.role == 'admin' %}
@@ -1662,6 +1693,17 @@ profile_content_block = """
             <video controls class="card-img-top" style="background-color:#000;">
                 <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
+            
+            {# START: Delete button for video owner and admin - directly under video #}
+            {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+            <div class="text-center p-2">
+                <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+                </form>
+            </div>
+            {% endif %}
+            {# END: Delete button #}
+
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ video.title }}</h5>
 
@@ -1684,6 +1726,16 @@ profile_content_block = """
                     <span class="badge bg-success mb-2"><i class="fas fa-check-circle me-1"></i>تمت الموافقة</span>
                 {% endif %}
                 {# END: NEW Moderation Block #}
+
+                {# START: Delete button for video owner and admin #}
+                {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+                <div class="mb-2">
+                    <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                        <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+                    </form>
+                </div>
+                {% endif %}
+                {# END: Delete button #}
 
                  <small><span class="badge bg-info">{{ video.video_type }}</span> <span class="text-muted ms-2">{{ video.timestamp | strftime('%Y-%m-%d') }}</span></small>
                 <div class="d-flex justify-content-between align-items-center mt-3">
@@ -2070,6 +2122,16 @@ video_review_content_block = """
             <video controls class="card-img-top" style="background-color:#000; border-radius: 0;">
                 <source src="{{ url_for('uploaded_file', filename=video.filepath) }}" type="video/mp4">
             </video>
+
+            {# START: Delete button for video owner and admin - directly under video #}
+            {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+            <div class="text-center p-2">
+                <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                    <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+                </form>
+            </div>
+            {% endif %}
+            {# END: Delete button #}
 
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ video.title }}</h5>
@@ -4138,16 +4200,21 @@ def approve_video(video_id):
 
 @app.route('/video/<int:video_id>/delete', methods=['POST'])
 def delete_video(video_id):
-    if session.get('role') != 'admin':
-        flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
-        return redirect(url_for('index'))
+    if 'user_id' not in session:
+        flash('يجب تسجيل الدخول أولاً.', 'danger')
+        return redirect(url_for('login'))
 
     db = get_db()
-    # ابحث عن الفيديو أولاً لجلب اسم الملف
-    video = db.execute('SELECT filepath FROM videos WHERE id = ?', (video_id,)).fetchone()
+    # ابحث عن الفيديو أولاً لجلب اسم الملف ومعلومات المستخدم
+    video = db.execute('SELECT filepath, user_id FROM videos WHERE id = ?', (video_id,)).fetchone()
 
     if not video:
         flash('الفيديو غير موجود.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+
+    # التحقق من الصلاحية: المدير يمكنه حذف أي فيديو، والطالب يمكنه حذف فيديوهاته فقط
+    if session.get('role') != 'admin' and session.get('user_id') != video['user_id']:
+        flash('ليس لديك الصلاحية لحذف هذا الفيديو.', 'danger')
         return redirect(request.referrer or url_for('index'))
 
     try:
