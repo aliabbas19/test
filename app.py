@@ -751,6 +751,17 @@ index_content_block = """
             </video>
         </div>
         {# END: MODIFICATION #}
+        
+        {# START: Delete button for video owner and admin - directly under video #}
+        {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
+        <div class="mt-2 mb-2 text-center">
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
+            </form>
+        </div>
+        {% endif %}
+        {# END: Delete button #}
+        
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
                 <button class="btn btn-link text-secondary like-btn {% if video.id in user_liked_videos %}text-danger{% endif %}" data-video-id="{{ video.id }}"> <i class="fas fa-heart fa-lg"></i> </button>
@@ -4279,13 +4290,17 @@ def delete_video(video_id):
         return redirect(request.referrer or url_for('index'))
 
     try:
-        # 1. حذف ملف الفيديو من المجلد
+        # 1. حذف جميع البيانات المرتبطة بالفيديو يدوياً (لضمان الحذف الصحيح)
+        db.execute('DELETE FROM comments WHERE video_id = ?', (video_id,))
+        db.execute('DELETE FROM video_likes WHERE video_id = ?', (video_id,))
+        db.execute('DELETE FROM dynamic_video_ratings WHERE video_id = ?', (video_id,))
+        
+        # 2. حذف ملف الفيديو من المجلد
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], video['filepath'])
         if os.path.exists(filepath):
             os.remove(filepath)
 
-        # 2. حذف جميع البيانات المتعلقة بالفيديو من قاعدة البيانات
-        # بفضل ON DELETE CASCADE، سيتم حذف التقييمات والإعجابات والتعليقات تلقائياً
+        # 3. حذف الفيديو من قاعدة البيانات
         db.execute('DELETE FROM videos WHERE id = ?', (video_id,))
 
         db.commit()
