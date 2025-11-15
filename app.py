@@ -869,7 +869,13 @@ index_content_block = """
 # ----------------- MODIFIED archive_content_block -----------------
 archive_content_block = """
 <h1 class="mb-2 text-center">أرشيف الفيديوهات</h1>
-<p class="text-center text-muted">هنا تجد الفيديوهات التي تم نشرها منذ أكثر من 7 أيام.</p>
+<p class="text-center text-muted">هنا تجد الفيديوهات التي تم نشرها منذ أكثر من 7 أيام. <strong>ملاحظة:</strong> الأرشفة تتم فقط يوم الجمعة.</p>
+
+{% if archive_message %}
+<div class="alert alert-info text-center" role="alert">
+    <i class="fas fa-info-circle me-2"></i>{{ archive_message }}
+</div>
+{% endif %}
 
 <div class="card mb-4 shadow-sm">
     <div class="card-body">
@@ -1049,7 +1055,11 @@ archive_content_block = """
     </div>
 </div>
 {% else %}
-<p class="text-center text-muted">لا توجد فيديوهات في الأرشيف تطابق معايير البحث.</p>
+    {% if archive_message %}
+        {# الرسالة تظهر في الأعلى #}
+    {% else %}
+        <p class="text-center text-muted">لا توجد فيديوهات في الأرشيف تطابق معايير البحث.</p>
+    {% endif %}
 {% endfor %}
 """
 # ----------------- login_content_block (No Changes) -----------------
@@ -3840,11 +3850,15 @@ def index():
     selected_video_type = request.args.get('video_type', '')
 
     if session.get('role') == 'admin':
-        all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
-        all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
+        all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
+        all_sections = db.execute("SELECT DISTINCT TRIM(section_name) as section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND TRIM(section_name) != '' ORDER BY section_name").fetchall()
 
     posts = db.execute('SELECT p.content, p.timestamp, u.username, u.full_name FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
-    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
+    
+    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
+    # الأرشفة تتم فقط يوم الجمعة
+    is_friday = datetime.now().weekday() == 4  # 4 = Friday
+    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS) if is_friday else datetime.min
 
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
@@ -3856,11 +3870,11 @@ def index():
     params = [cutoff_date]
 
     if session.get('role') == 'admin' and selected_class:
-        video_query += ' AND u.class_name = ?'
-        params.append(selected_class)
+        video_query += ' AND TRIM(u.class_name) = ?'
+        params.append(selected_class.strip())
     if session.get('role') == 'admin' and selected_section:
-        video_query += ' AND u.section_name = ?'
-        params.append(selected_section)
+        video_query += ' AND TRIM(u.section_name) = ?'
+        params.append(selected_section.strip())
 
     if selected_video_type in ['منهجي', 'اثرائي']:
         video_query += ' AND v.video_type = ?'
@@ -3904,9 +3918,35 @@ def archive():
     end_date = request.args.get('end_date', '')
     selected_video_type = request.args.get('video_type', '')
 
-    all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
+    all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
 
+    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
+    # الأرشفة تتم فقط يوم الجمعة
+    is_friday = datetime.now().weekday() == 4  # 4 = Friday
+    if not is_friday:
+        # إذا لم يكن يوم الجمعة، لا تظهر أي فيديوهات في الأرشيف
+        archived_videos = []
+        video_ids = []
+        video_ratings, video_likes, user_liked_videos, video_comments = get_common_video_data(video_ids)
+        return render_page('archive',
+                           videos=archived_videos,
+                           video_ratings=video_ratings,
+                           video_comments=video_comments,
+                           champion_statuses=get_champion_statuses(),
+                           video_likes=video_likes,
+                           user_liked_videos=user_liked_videos,
+                           scripts_block=common_scripts_block,
+                           all_classes=all_classes,
+                           selected_class=selected_class,
+                           start_date=start_date,
+                           end_date=end_date,
+                           selected_video_type=selected_video_type,
+                           all_criteria=g.all_criteria,
+                           archive_message="الأرشيف متاح فقط يوم الجمعة. يرجى العودة يوم الجمعة لعرض الفيديوهات المؤرشفة."
+                          )
+    
     cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
+    # --- END: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
 
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
@@ -3918,8 +3958,8 @@ def archive():
     params = [cutoff_date]
 
     if selected_class:
-        query += ' AND u.class_name = ?'
-        params.append(selected_class)
+        query += ' AND TRIM(u.class_name) = ?'
+        params.append(selected_class.strip())
     if start_date:
         query += ' AND date(v.timestamp) >= ?'
         params.append(start_date)
@@ -4398,18 +4438,18 @@ def students():
     selected_section = request.args.get('section_name', '')
     search_name = request.args.get('search_name', '')
 
-    all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
-    all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
+    all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
+    all_sections = db.execute("SELECT DISTINCT TRIM(section_name) as section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND TRIM(section_name) != '' ORDER BY section_name").fetchall()
 
     query = "SELECT id, username, full_name, profile_image, class_name, section_name FROM users WHERE role = 'student'"
     params = []
 
     if selected_class:
-        query += " AND class_name = ?"
-        params.append(selected_class)
+        query += " AND TRIM(class_name) = ?"
+        params.append(selected_class.strip())
     if selected_section:
-        query += " AND section_name = ?"
-        params.append(selected_section)
+        query += " AND TRIM(section_name) = ?"
+        params.append(selected_section.strip())
     if search_name:
         query += " AND username LIKE ?"
         params.append(f'%{search_name}%')
@@ -4433,14 +4473,14 @@ def reports():
     db = get_db()
 
     selected_class = request.args.get('class_name', '')
-    all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
+    all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
 
     # 1. جلب الطلاب
     student_query = "SELECT id, username, class_name, section_name FROM users WHERE role = 'student'"
     params = []
     if selected_class:
-        student_query += " AND class_name = ?"
-        params.append(selected_class)
+        student_query += " AND TRIM(class_name) = ?"
+        params.append(selected_class.strip())
     student_query += " ORDER BY username"
     students = db.execute(student_query, tuple(params)).fetchall()
 
@@ -4450,14 +4490,14 @@ def reports():
     # 3. جلب جميع فيديوهات الطلاب المفلترة
     video_params = []
     if selected_class:
-        video_params.append(selected_class)
+        video_params.append(selected_class.strip())
     
     all_student_videos = db.execute(f"""
         SELECT v.id, v.title, v.timestamp, v.user_id, v.video_type
         FROM videos v
         JOIN users u ON v.user_id = u.id
         WHERE v.is_approved = 1 AND u.role = 'student'
-        {'AND u.class_name = ?' if selected_class else ''}
+        {'AND TRIM(u.class_name) = ?' if selected_class else ''}
     """, tuple(video_params)).fetchall()
 
     all_video_ids = [v['id'] for v in all_student_videos]
@@ -4751,8 +4791,8 @@ def conversations():
         return redirect(url_for('index'))
 
     db = get_db()
-    all_classes = db.execute("SELECT DISTINCT class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND class_name != '' ORDER BY class_name").fetchall()
-    all_sections = db.execute("SELECT DISTINCT section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND section_name != '' ORDER BY section_name").fetchall()
+    all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
+    all_sections = db.execute("SELECT DISTINCT TRIM(section_name) as section_name FROM users WHERE role = 'student' AND section_name IS NOT NULL AND TRIM(section_name) != '' ORDER BY section_name").fetchall()
 
     return render_page('conversations',
                        all_classes=all_classes,
@@ -4790,11 +4830,11 @@ def api_get_users():
     params = []
 
     if class_name:
-        query += " AND class_name = ?"
-        params.append(class_name)
+        query += " AND TRIM(class_name) = ?"
+        params.append(class_name.strip())
     if section_name:
-        query += " AND section_name = ?"
-        params.append(section_name)
+        query += " AND TRIM(section_name) = ?"
+        params.append(section_name.strip())
     if search_name:
         query += " AND username LIKE ?"
         params.append(f'%{search_name}%')
@@ -4850,11 +4890,11 @@ def api_send_admin_message():
         if not class_name:
             return jsonify({"status": "error", "message": "Class name is required for group message."}), 400
 
-        student_query = "SELECT id FROM users WHERE role = 'student' AND class_name = ?"
-        params = [class_name]
+        student_query = "SELECT id FROM users WHERE role = 'student' AND TRIM(class_name) = ?"
+        params = [class_name.strip()]
         if section_name:
-            student_query += " AND section_name = ?"
-            params.append(section_name)
+            student_query += " AND TRIM(section_name) = ?"
+            params.append(section_name.strip())
 
         students = db.execute(student_query, tuple(params)).fetchall()
         for student in students:
