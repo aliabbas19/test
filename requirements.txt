@@ -2,3 +2,4 @@ flask
 werkzeug
 av
 waitress
+reportlab

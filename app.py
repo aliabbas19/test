@@ -4,6 +4,15 @@ import av
 import hashlib
 import secrets
 import json
+import io
+import tempfile
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 # --- تعديل 1: إضافة send_from_directory ---
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify, send_from_directory, abort, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -67,6 +76,8 @@ base_html = """
             z-index: 1000;
             box-shadow: 2px 0 15px rgba(0,0,0,0.2);
             border-left: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         .circular-nav ul { list-style: none; padding: 0; margin: 0; }
         .circular-nav li { margin: 25px 0; }
@@ -337,24 +348,60 @@ base_html = """
                 width: 100%;
                 position: relative; /* Changed from fixed */
                 flex-direction: row;
-                justify-content: center;
+                justify-content: flex-start;
                 padding: 10px 2px;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 /* MODIFICATION: Placed at bottom of its container, creating space */
                 margin-top: 0;
                 margin-bottom: 20px;
                 border-radius: 15px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                white-space: nowrap;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(13, 110, 253, 0.5) rgba(255, 255, 255, 0.1);
+            }
+            
+            /* Custom scrollbar for webkit browsers */
+            .circular-nav::-webkit-scrollbar {
+                height: 6px;
+            }
+            .circular-nav::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .circular-nav::-webkit-scrollbar-thumb {
+                background: rgba(13, 110, 253, 0.5);
+                border-radius: 10px;
+            }
+            .circular-nav::-webkit-scrollbar-thumb:hover {
+                background: rgba(13, 110, 253, 0.7);
             }
 
-            .circular-nav ul { display: flex; flex-direction: row; width: 100%; justify-content: space-around; }
+            .circular-nav ul { 
+                display: flex; 
+                flex-direction: row; 
+                width: auto;
+                min-width: 100%;
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                white-space: nowrap;
+            }
 
-            .circular-nav li { margin: 0 2px; }
+            .circular-nav li { 
+                margin: 0 2px;
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
             .circular-nav a {
                 width: 48px;
                 height: 48px;
                 font-size: 0.6rem;
                 border-width: 1px;
                 padding: 2px;
+                flex-shrink: 0;
+                white-space: nowrap;
             }
             .nav-badge {
                 top: -2px;
@@ -3492,6 +3539,140 @@ def send_telegram_message(bot_token, chat_id, message):
         print(f"Error sending Telegram message: {e}")
         return False
 
+def send_telegram_document(bot_token, chat_id, file_path, caption=""):
+    """Send a document/file to Telegram"""
+    try:
+        import urllib.request
+        import urllib.parse
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+        
+        # Read file content
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+        
+        # Create multipart form data
+        boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        body_parts = []
+        
+        # Add chat_id
+        body_parts.append(f'--{boundary}'.encode())
+        body_parts.append(b'Content-Disposition: form-data; name="chat_id"')
+        body_parts.append(b'')
+        body_parts.append(str(chat_id).encode())
+        
+        # Add caption if provided
+        if caption:
+            body_parts.append(f'--{boundary}'.encode())
+            body_parts.append(b'Content-Disposition: form-data; name="caption"')
+            body_parts.append(b'')
+            body_parts.append(caption.encode('utf-8'))
+        
+        # Add document file
+        body_parts.append(f'--{boundary}'.encode())
+        body_parts.append(f'Content-Disposition: form-data; name="document"; filename="{os.path.basename(file_path)}"'.encode())
+        body_parts.append(b'Content-Type: application/pdf')
+        body_parts.append(b'')
+        body_parts.append(file_content)
+        
+        # End boundary
+        body_parts.append(f'--{boundary}--'.encode())
+        
+        # Combine all parts
+        body = b'\r\n'.join(body_parts)
+        
+        # Create request
+        req = urllib.request.Request(url, data=body)
+        req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
+        req.add_header('Content-Length', str(len(body)))
+        
+        # Send request
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode())
+            return result.get('ok', False)
+    except Exception as e:
+        print(f"Error sending Telegram document: {e}")
+        return False
+
+def create_champions_pdf(class_name, section_name, champions_list):
+    """Create a PDF file for champions of a specific class and section"""
+    try:
+        # Create a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_path = temp_file.name
+        temp_file.close()
+        
+        # Create PDF document
+        doc = SimpleDocTemplate(temp_path, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+        
+        # Container for the 'Flowable' objects
+        elements = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        
+        # Title style
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor='#0d6efd',
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        # Subtitle style
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=18,
+            textColor='#495057',
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            fontName='Helvetica'
+        )
+        
+        # Champion name style
+        champion_style = ParagraphStyle(
+            'ChampionStyle',
+            parent=styles['Normal'],
+            fontSize=14,
+            textColor='#212529',
+            spaceAfter=15,
+            alignment=TA_RIGHT,
+            fontName='Helvetica'
+        )
+        
+        # Add title
+        title = Paragraph("🏆 أبطال الأسبوع", title_style)
+        elements.append(title)
+        elements.append(Spacer(1, 0.5*cm))
+        
+        # Add class and section
+        class_section_text = f"الصف: {class_name} - الشعبة: {section_name}"
+        subtitle = Paragraph(class_section_text, subtitle_style)
+        elements.append(subtitle)
+        elements.append(Spacer(1, 1*cm))
+        
+        # Add champions list
+        if champions_list:
+            for i, champion in enumerate(champions_list, 1):
+                champion_text = f"{i}. {champion['name']}"
+                champion_para = Paragraph(champion_text, champion_style)
+                elements.append(champion_para)
+        else:
+            no_champions = Paragraph("لا يوجد أبطال هذا الأسبوع", champion_style)
+            elements.append(no_champions)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        return temp_path
+    except Exception as e:
+        print(f"Error creating PDF: {e}")
+        return None
+
 def get_week_champions():
     """Get all current week champions with their details"""
     db = get_db()
@@ -3540,7 +3721,7 @@ def get_week_champions():
     return champions
 
 def send_week_champions_to_telegram():
-    """Send week champions to Telegram automatically"""
+    """Send week champions to Telegram automatically as PDF files grouped by class and section"""
     settings = get_telegram_settings()
     if not settings:
         return  # No settings configured, silently skip
@@ -3549,22 +3730,47 @@ def send_week_champions_to_telegram():
     if not champions:
         return  # No champions this week
     
-    # Build message
-    message = "🏆 أبطال الأسبوع\n\n"
+    # Group champions by class and section
+    champions_by_class_section = defaultdict(list)
     for champion in champions:
-        message += f"👤 الاسم: {champion['name']}\n"
-        message += f"🏫 الصف: {champion['class']}\n"
-        message += f"📌 الشعبة: {champion['section']}\n\n"
+        class_name = champion['class'] or 'غير محدد'
+        section_name = champion['section'] or 'غير محدد'
+        key = (class_name, section_name)
+        champions_by_class_section[key].append(champion)
     
-    # Send message
-    send_telegram_message(settings['bot_token'], settings['chat_id'], message)
+    # Create and send PDF for each class-section group
+    temp_files = []  # Track temporary files for cleanup
+    try:
+        for (class_name, section_name), champions_list in champions_by_class_section.items():
+            # Create PDF file
+            pdf_path = create_champions_pdf(class_name, section_name, champions_list)
+            if pdf_path:
+                temp_files.append(pdf_path)
+                # Create caption for the file
+                caption = f"🏆 أبطال الأسبوع\nالصف: {class_name}\nالشعبة: {section_name}"
+                # Send PDF to Telegram
+                send_telegram_document(
+                    settings['bot_token'], 
+                    settings['chat_id'], 
+                    pdf_path, 
+                    caption=caption
+                )
+    finally:
+        # Clean up temporary files
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception as e:
+                print(f"Error deleting temporary file {temp_file}: {e}")
 
 # Track last known champions to detect new ones (stored in memory)
 _last_known_champions = None
+_last_sent_date = None  # Track last date when champions were sent
 
 def check_and_send_new_champions():
-    """Check for new champions and send to Telegram if detected"""
-    global _last_known_champions
+    """Check for new champions and send to Telegram only on Wednesday at 8 PM"""
+    global _last_known_champions, _last_sent_date
     current_champions = get_week_champions()
     current_ids = {c['id'] for c in current_champions}
     
@@ -3573,10 +3779,23 @@ def check_and_send_new_champions():
         _last_known_champions = current_ids
         return
     
-    # Check if there are new champions
-    new_champions = current_ids - _last_known_champions
-    if new_champions:  # Send if there are new champions
-        send_week_champions_to_telegram()
+    # Get current date and time
+    now = datetime.now()
+    current_weekday = now.weekday()  # 0=Monday, 1=Tuesday, 2=Wednesday, etc.
+    current_hour = now.hour
+    current_date = now.date()
+    
+    # Check if it's Wednesday (2) and 8 PM (20:00)
+    is_wednesday_8pm = (current_weekday == 2 and current_hour == 20)
+    
+    # Only send if:
+    # 1. It's Wednesday at 8 PM
+    # 2. We haven't sent today yet (to avoid multiple sends on the same day)
+    if is_wednesday_8pm and _last_sent_date != current_date:
+        # Send all current champions (not just new ones) on Wednesday at 8 PM
+        if current_champions:  # Only send if there are champions
+            send_week_champions_to_telegram()
+            _last_sent_date = current_date  # Mark that we sent today
     
     # Update last known champions
     _last_known_champions = current_ids
@@ -3694,6 +3913,22 @@ def before_request_handler():
         g.all_criteria[c['video_type']].append(dict(c))
         g.criteria_key_map[c['key']] = dict(c)
     # ================== END: Load criteria ==================
+    
+    # ================== START: Check and send champions on Wednesday at 8 PM ==================
+    # Only check on specific endpoints to reduce overhead
+    # Quick check: only proceed if it's Wednesday and hour is 20 (8 PM)
+    if request.endpoint not in ['static', 'uploaded_file']:
+        now = datetime.now()
+        current_weekday = now.weekday()
+        current_hour = now.hour
+        # Only check if it's Wednesday (2) and hour is 20 (8 PM)
+        # This ensures sending happens during the 8 PM hour (8:00-8:59)
+        if current_weekday == 2 and current_hour == 20:
+            try:
+                check_and_send_new_champions()
+            except Exception as e:
+                print(f"Error in scheduled champion check: {e}")
+    # ================== END: Check and send champions ==================
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
@@ -4686,14 +4921,8 @@ def rate_video(video_id):
     if video['video_type'] == 'اثرائي' and total_stars == max_stars and max_stars > 0:
         champion_message = "أصبح هذا الطالب بطلاً خارقاً!"
 
-    # ================== START: TELEGRAM AUTO-SEND ==================
-    # Check for new week champions and send to Telegram automatically
-    if video['video_type'] == 'منهجي':  # Only check for week champions (منهجي)
-        try:
-            check_and_send_new_champions()
-        except Exception as e:
-            print(f"Error checking/sending champions to Telegram: {e}")
-    # ================== END: TELEGRAM AUTO-SEND ==================
+    # Note: Telegram sending is now handled automatically in before_request_handler()
+    # on Wednesday at 8 PM, so no need to check here
 
     # 8. إرجاع البيانات المحدثة إلى الواجهة
     return jsonify({
