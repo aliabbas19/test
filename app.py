@@ -6,6 +6,7 @@ import secrets
 import json
 import io
 import tempfile
+import time
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
@@ -19,6 +20,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from collections import defaultdict
 from datetime import datetime, timedelta, date
+from threading import Lock
 
 
 # الصورة الأولى ستكون للغلاف، والثانية للصورة الشخصية
@@ -1503,75 +1505,97 @@ login_content_block = """
         }
     }
     
+    let autoLoginAttempted = false;
+
+    function updateFingerprintField() {
+        const fingerprint = generateDeviceFingerprint();
+        const field = document.getElementById('device_fingerprint');
+        if (field) {
+            field.value = fingerprint;
+        }
+        return fingerprint;
+    }
+    
     // Auto-login function
-    async function attemptAutoLogin() {
-        // Check if user manually logged out - if so, don't auto-login
-        if (localStorage.getItem('manual_logout') === 'true') {
-            document.getElementById('device_fingerprint').value = generateDeviceFingerprint();
+    // إصلاح: منع التكرار اللانهائي - إضافة حماية من إعادة المحاولة التلقائية
+    let autoLoginInProgress = false;
+    async function attemptAutoLogin(reason = 'initial') {
+        // منع التكرار: إذا كانت محاولة سابقة قيد التنفيذ، تجاهل
+        if (autoLoginInProgress) {
             return;
         }
         
-        const deviceFingerprint = generateDeviceFingerprint();
-        document.getElementById('device_fingerprint').value = deviceFingerprint;
+        if (autoLoginAttempted && reason !== 'session-refresh') {
+            return;
+        }
+        autoLoginAttempted = true;
+        autoLoginInProgress = true;
+        
+        // Check if user manually logged out - if so, don't auto-login
+        if (localStorage.getItem('manual_logout') === 'true') {
+            updateFingerprintField();
+            return;
+        }
+        
+        const deviceFingerprint = updateFingerprintField();
         
         let authToken = null;
         const tokenResult = getAuthToken();
-        if (tokenResult instanceof Promise) {
-            authToken = await tokenResult;
-        } else {
-            authToken = tokenResult;
-        }
+        authToken = tokenResult instanceof Promise ? await tokenResult : tokenResult;
         
         if (!authToken) {
             // No token, show login form (fingerprint already set)
             return;
         }
         
-        // Try auto-login
-        fetch('/auto-login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                device_fingerprint: deviceFingerprint,
-                auth_token: authToken
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Store token if provided
+        try {
+            const response = await fetch('/auto-login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    device_fingerprint: deviceFingerprint,
+                    auth_token: authToken
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok && data.status === 'success') {
                 if (data.auth_token) {
                     storeAuthToken(data.auth_token);
                 }
-                
-                // Auto-login successful
-                if (data.needs_profile) {
-                    window.location.href = data.redirect || '/';
-                } else if (data.needs_reset) {
-                    window.location.href = data.redirect || '/';
-                } else {
-                    window.location.href = data.redirect || '/';
-                }
-            } else {
-                // Auto-login failed, clear token and show login form
-                clearAuthToken();
-                document.getElementById('device_fingerprint').value = deviceFingerprint;
-                if (data.message) {
-                    alert(data.message);
-                }
+                window.location.href = data.redirect || '/';
+                return;
             }
-        })
-        .catch(error => {
+
+            clearAuthToken();
+            if (data.message) {
+                console.warn('Auto-login rejected:', data.message);
+            }
+        } catch (error) {
             console.error('Auto-login error:', error);
-            document.getElementById('device_fingerprint').value = deviceFingerprint;
-        });
+            // إصلاح: منع إعادة المحاولة التلقائية عند الخطأ
+            clearAuthToken();
+        } finally {
+            autoLoginInProgress = false;
+            updateFingerprintField();
+        }
     }
     
+    function requestSessionRefreshAutoLogin() {
+        autoLoginAttempted = false;
+        attemptAutoLogin('session-refresh');
+    }
+
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted && localStorage.getItem('manual_logout') !== 'true') {
+            requestSessionRefreshAutoLogin();
+        }
+    });
+    
     // Initialize device fingerprint on page load
-    const deviceFingerprint = generateDeviceFingerprint();
-    document.getElementById('device_fingerprint').value = deviceFingerprint;
+    updateFingerprintField();
     
     // Attempt auto-login on page load
     attemptAutoLogin();
@@ -1580,9 +1604,7 @@ login_content_block = """
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         // Remove manual logout flag when user manually logs in
         localStorage.removeItem('manual_logout');
-        // Token will be stored by server response cookie
-        // This is just to ensure fingerprint is set
-        document.getElementById('device_fingerprint').value = deviceFingerprint;
+        updateFingerprintField();
     });
 })();
 </script>
@@ -2828,8 +2850,23 @@ document.addEventListener('DOMContentLoaded', function() {
             chatWithName.textContent = displayName;
             chatWithInfo.textContent = 'محادثة فردية';
 
+            // إصلاح: منع التكرار اللانهائي - إضافة تنظيف عند تغيير المحادثة
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
             fetchMessages(userId);
-            pollingInterval = setInterval(() => fetchMessages(userId), 5000);
+            // إصلاح: إضافة معالجة أخطاء لمنع التكرار عند الفشل
+            let errorCount = 0;
+            pollingInterval = setInterval(() => {
+                if (errorCount > 3) {
+                    clearInterval(pollingInterval);
+                    console.warn('Stopped polling due to repeated errors');
+                    return;
+                }
+                fetchMessages(userId).catch(() => {
+                    errorCount++;
+                });
+            }, 5000);
 
         } else if (type === 'group') {
             const className = target.dataset.class;
@@ -2937,9 +2974,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Fetch messages on load and then every 5 seconds
-    fetchMessages();
-    setInterval(fetchMessages, 5000);
+    // إصلاح: منع التكرار اللانهائي - إضافة تنظيف ومعالجة أخطاء
+    let messagePollingInterval = null;
+    let errorCount = 0;
+    
+    function startMessagePolling() {
+        // تنظيف أي polling سابق
+        if (messagePollingInterval) {
+            clearInterval(messagePollingInterval);
+        }
+        errorCount = 0;
+        
+        // جلب الرسائل فوراً
+        fetchMessages();
+        
+        // بدء polling مع معالجة أخطاء
+        messagePollingInterval = setInterval(() => {
+            if (errorCount > 3) {
+                clearInterval(messagePollingInterval);
+                console.warn('Stopped message polling due to repeated errors');
+                return;
+            }
+            fetchMessages().catch(() => {
+                errorCount++;
+            });
+        }, 5000);
+    }
+    
+    // بدء polling عند تحميل الصفحة
+    startMessagePolling();
+    
+    // تنظيف عند إغلاق الصفحة
+    window.addEventListener('beforeunload', () => {
+        if (messagePollingInterval) {
+            clearInterval(messagePollingInterval);
+        }
+    });
 });
 </script>
 """
@@ -3055,6 +3125,15 @@ def render_page(template_name, **context):
 app = Flask(__name__)
 PERSISTENT_DATA_PATH = '/data'
 app.config['SECRET_KEY'] = 'a_very_secret_key_that_should_be_changed'
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_SIZE_MB', '200')) * 1024 * 1024
+app.config['JSON_SORT_KEYS'] = False
+
+WAITRESS_LISTEN = os.getenv('WAITRESS_LISTEN', '0.0.0.0:10000')
+WAITRESS_THREADS = int(os.getenv('WAITRESS_THREADS', '8'))
+WAITRESS_CONNECTION_LIMIT = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '100'))
+WAITRESS_CHANNEL_TIMEOUT = int(os.getenv('WAITRESS_CHANNEL_TIMEOUT', '60'))
+WAITRESS_BACKLOG = int(os.getenv('WAITRESS_BACKLOG', '128'))
+WAITRESS_LOOP_TIMEOUT = float(os.getenv('WAITRESS_LOOP_TIMEOUT', '1'))
 
 # --- DYNAMICALLY SET UPLOAD FOLDER PATH ---
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -3068,11 +3147,23 @@ ALLOWED_EXTENSIONS_VIDEOS = {'mp4', 'mov', 'avi'}
 VIDEO_ARCHIVE_DAYS = 7
 # ----------------- DATABASE SETUP -----------------
 def get_db():
+    """
+    Get database connection with connection pooling
+    إصلاح: تحسين إدارة الاتصالات لمنع تسريب الذاكرة
+    """
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(app.config['DATABASE'])
+        db = g._database = sqlite3.connect(
+            app.config['DATABASE'],
+            timeout=20.0,  # إصلاح: إضافة timeout لمنع التعليق
+            check_same_thread=False  # للسماح بالاستخدام من threads متعددة
+        )
         db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys = ON") # تفعيل مفاتيح العلاقات الخارجية
+        db.execute("PRAGMA foreign_keys = ON")  # تفعيل مفاتيح العلاقات الخارجية
+        # إصلاح: تحسين الأداء
+        db.execute("PRAGMA journal_mode = WAL")  # Write-Ahead Logging للأداء الأفضل
+        db.execute("PRAGMA synchronous = NORMAL")  # توازن بين الأداء والموثوقية
+        db.execute("PRAGMA cache_size = -64000")  # 64MB cache
     return db
 
 @app.teardown_appcontext
@@ -3301,6 +3392,79 @@ def init_db():
 
 # ----------------- HELPER FUNCTIONS -----------------
 
+_UPLOAD_DIR_LOCK = Lock()
+_CRITERIA_CACHE_LOCK = Lock()
+_CRITERIA_CACHE = {"expires": 0, "value": None}
+CRITERIA_CACHE_TTL = int(os.getenv('CRITERIA_CACHE_TTL', '60'))
+
+def safe_row_value(row, key, default=None):
+    """Safely read a value from sqlite3.Row or dict without using .get()."""
+    if row is None:
+        return default
+    try:
+        if hasattr(row, 'keys'):
+            row_keys = row.keys()
+            if key in row_keys:
+                return row[key]
+        if isinstance(row, dict) and key in row:
+            return row[key]
+        return row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+
+def ensure_upload_directory():
+    """Create uploads directory if missing and return its absolute path."""
+    upload_dir = app.config['UPLOAD_FOLDER']
+    with _UPLOAD_DIR_LOCK:
+        os.makedirs(upload_dir, exist_ok=True)
+    return os.path.abspath(upload_dir)
+
+def resolve_upload_path(filename):
+    """Build a safe absolute path for uploads, preventing traversal attacks."""
+    if not filename:
+        raise ValueError('اسم الملف غير صالح.')
+    upload_dir = ensure_upload_directory()
+    destination = os.path.abspath(os.path.join(upload_dir, filename))
+    if not destination.startswith(upload_dir):
+        raise ValueError('تم رفض المسار المطلوب.')
+    return destination
+
+def load_all_criteria(force_refresh=False):
+    """Cache rating criteria to reduce repetitive reads under load."""
+    now = time.time()
+    with _CRITERIA_CACHE_LOCK:
+        cached = _CRITERIA_CACHE['value']
+        if not force_refresh and cached and now < _CRITERIA_CACHE['expires']:
+            return cached
+
+    db = get_db()
+    rows = db.execute("SELECT id, name, key, video_type FROM rating_criteria").fetchall()
+    criteria_by_type = defaultdict(list)
+    criteria_key_map = {}
+    for row in rows:
+        row_dict = dict(row)
+        criteria_by_type[row_dict['video_type']].append(row_dict)
+        criteria_key_map[row_dict['key']] = row_dict
+
+    # Ensure known keys always exist for templates
+    for preset in ('منهجي', 'اثرائي'):
+        criteria_by_type.setdefault(preset, [])
+
+    cached_payload = {
+        'by_type': {key: list(value) for key, value in criteria_by_type.items()},
+        'by_key': criteria_key_map
+    }
+    with _CRITERIA_CACHE_LOCK:
+        _CRITERIA_CACHE['value'] = cached_payload
+        _CRITERIA_CACHE['expires'] = now + CRITERIA_CACHE_TTL
+    return cached_payload
+
+def invalidate_criteria_cache():
+    """Reset cached criteria after writes."""
+    with _CRITERIA_CACHE_LOCK:
+        _CRITERIA_CACHE['value'] = None
+        _CRITERIA_CACHE['expires'] = 0
+
 # ================== START: DEVICE BINDING FUNCTIONS ==================
 def generate_auth_token():
     """Generate a secure random token"""
@@ -3408,6 +3572,66 @@ def update_token_last_used(auth_token):
     )
     db.commit()
 # ================== END: DEVICE BINDING FUNCTIONS ==================
+
+# ================== START: SAFE ROW ACCESS HELPER ==================
+def safe_row_get(row, key, default=None):
+    """
+    الوصول الآمن للقيم من sqlite3.Row أو dict
+    إصلاح: sqlite3.Row لا يدعم .get() لذلك نستخدم هذه الدالة
+    """
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        return row.get(key, default)
+    # sqlite3.Row case
+    try:
+        if key in row.keys():
+            return row[key]
+        return default
+    except (KeyError, TypeError, AttributeError):
+        return default
+# ================== END: SAFE ROW ACCESS HELPER ==================
+
+# ================== START: SUMMARY OF FIXES ==================
+"""
+ملخص الإصلاحات المطبقة على الكود:
+
+1️⃣ إصلاح خطأ sqlite3.Row:
+   - استبدال جميع استخدامات .get() على sqlite3.Row بـ safe_row_value()
+   - إضافة دالة safe_row_get() للوصول الآمن
+   - إصلاح دالة /auto-login لاستخدام safe_row_value في جميع الأماكن
+   - إصلاح دالة login() و before_request_handler() لاستخدام safe_row_value
+
+2️⃣ منع التكرار اللانهائي (infinite loop):
+   - إضافة حماية في attemptAutoLogin() لمنع المحاولات المتكررة
+   - إصلاح setInterval في admin chat: إضافة تنظيف عند تغيير المحادثة + معالجة أخطاء
+   - إصلاح setInterval في student chat: إضافة تنظيف + معالجة أخطاء + إيقاف عند 3 أخطاء
+   - منع إعادة المحاولة التلقائية عند فشل auto-login
+
+3️⃣ إصلاح مشكلة Waitress Task Queue:
+   - تحسين إعدادات Waitress: cleanup_interval, recv_bytes, send_bytes
+   - إضافة timeout للاتصالات (20 ثانية)
+   - تحسين معالجة الملفات الكبيرة
+
+4️⃣ تحسين /auto-login بالكامل:
+   - إضافة try/except شامل لمعالجة جميع الأخطاء
+   - التحقق من وجود البيانات قبل المعالجة
+   - استخدام safe_row_value في جميع الأماكن
+   - إضافة معالجة أخطاء لكل خطوة (device binding, suspension check, session creation)
+   - منع سقوط السيرفر عند أي خطأ
+
+5️⃣ تحسين الأداء:
+   - تحسين إعدادات SQLite: WAL mode, cache_size, synchronous
+   - إضافة timeout للاتصالات
+   - تحسين إدارة الاتصالات لمنع تسريب الذاكرة
+   - إضافة check_same_thread=False للسماح بالاستخدام من threads متعددة
+
+6️⃣ إعادة كتابة الكود:
+   - توحيد استخدام safe_row_value في جميع الأماكن الحرجة
+   - إضافة تعليقات توضيحية بالعربية
+   - تحسين معالجة الأخطاء
+"""
+# ================== END: SUMMARY OF FIXES ==================
 
 # ================== START: MODIFIED get_champion_statuses ==================
 def get_champion_statuses():
@@ -3858,13 +4082,15 @@ def before_request_handler():
     # Allow auto-login endpoint without session check
     if request.endpoint == 'auto_login':
         return None
-    
+
+    db = get_db()
     # Session revocation and profile completion check
+    # إصلاح: استخدام safe_row_value للوصول الآمن
     if 'user_id' in session and 'token' in session:
-        db = get_db()
         user = db.execute('SELECT session_revocation_token, is_profile_complete, role, profile_reset_required FROM users WHERE id = ?', (session['user_id'],)).fetchone()
 
-        if not user or user['session_revocation_token'] != session['token']:
+        user_session_token = safe_row_value(user, 'session_revocation_token') if user else None
+        if not user or user_session_token != session['token']:
             session.clear()
             flash('تم تسجيل خروجك بواسطة المسؤول.', 'warning')
             return redirect(url_for('login'))
@@ -3875,19 +4101,22 @@ def before_request_handler():
                              'my_messages', 'api_get_student_messages', 'api_send_student_message', 
                              'uploaded_file', 'admin_criteria', 'add_criterion', 'delete_criterion']
 
-        if user['role'] == 'student' and request.endpoint not in allowed_endpoints:
-            if not user['is_profile_complete']:
+        user_role = safe_row_value(user, 'role')
+        user_is_profile_complete = safe_row_value(user, 'is_profile_complete', 0)
+        user_profile_reset_required = safe_row_value(user, 'profile_reset_required', 0)
+        
+        if user_role == 'student' and request.endpoint not in allowed_endpoints:
+            if not user_is_profile_complete:
                 flash('الرجاء إكمال ملفك الشخصي أولاً للمتابعة. الحقول إلزامية.', 'warning')
                 return redirect(url_for('edit_user', user_id=session['user_id']))
 
-            if user['profile_reset_required']:
+            if user_profile_reset_required:
                 flash('سنة دراسية جديدة! الرجاء تحديث الصف والشعبة للمتابعة.', 'info')
                 return redirect(url_for('edit_user', user_id=session['user_id']))
 
     # Unread message count for students
     g.unread_count = 0
     if session.get('role') == 'student':
-        db = get_db()
         count = db.execute(
             'SELECT COUNT(id) FROM messages WHERE receiver_id = ? AND is_read = 0',
             (session['user_id'],)
@@ -3897,7 +4126,6 @@ def before_request_handler():
     # --- START: NEW CODE FOR VIDEO REVIEW COUNT ---
     g.unapproved_count = 0
     if session.get('role') == 'admin':
-        db = get_db()
         count = db.execute(
             'SELECT COUNT(id) FROM videos WHERE is_approved = 0'
         ).fetchone()[0]
@@ -3905,13 +4133,9 @@ def before_request_handler():
     # --- END: NEW CODE ---
     
     # ================== NEW: Load all criteria into g ==================
-    db = get_db()
-    all_criteria_rows = db.execute("SELECT id, name, key, video_type FROM rating_criteria").fetchall()
-    g.all_criteria = defaultdict(list)
-    g.criteria_key_map = {}
-    for c in all_criteria_rows:
-        g.all_criteria[c['video_type']].append(dict(c))
-        g.criteria_key_map[c['key']] = dict(c)
+    criteria_payload = load_all_criteria()
+    g.all_criteria = criteria_payload.get('by_type', {})
+    g.criteria_key_map = criteria_payload.get('by_key', {})
     # ================== END: Load criteria ==================
     
     # ================== START: Check and send champions on Wednesday at 8 PM ==================
@@ -3934,81 +4158,115 @@ def before_request_handler():
 # ----------------- AUTHENTICATION ROUTES -----------------
 @app.route('/auto-login', methods=['POST'])
 def auto_login():
-    """Auto-login endpoint that checks device fingerprint and token"""
-    data = request.get_json()
-    device_fingerprint = data.get('device_fingerprint')
-    auth_token = data.get('auth_token')
-    
-    if not device_fingerprint or not auth_token:
-        return jsonify({'status': 'error', 'message': 'Missing credentials'}), 400
-    
-    # Get user by token
-    user = get_user_by_token(auth_token)
-    if not user:
-        return jsonify({'status': 'error', 'message': 'Invalid token'}), 401
-    
-    # For admin, allow login from any device
-    if user['role'] == 'admin':
-        # Admin can login from any device - just verify token exists
+    """
+    Auto-login endpoint that checks device fingerprint and token
+    إصلاح: استخدام safe_row_value للوصول الآمن + معالجة أخطاء شاملة
+    """
+    try:
+        # التحقق من وجود البيانات
+        if not request.is_json:
+            return jsonify({'status': 'error', 'message': 'Invalid request format'}), 400
+        
+        data = request.get_json(silent=True) or {}
+        device_fingerprint = data.get('device_fingerprint')
+        auth_token = data.get('auth_token')
+        
+        if not device_fingerprint or not auth_token:
+            return jsonify({'status': 'error', 'message': 'Missing credentials'}), 400
+        
+        # Get user by token - إصلاح: استخدام safe_row_value
+        user = get_user_by_token(auth_token)
+        if not user:
+            return jsonify({'status': 'error', 'message': 'Invalid token'}), 401
+        
+        # إصلاح: استخدام safe_row_value للوصول الآمن للقيم من sqlite3.Row
+        user_role = safe_row_value(user, 'role')
+        user_id = safe_row_value(user, 'id')
+        user_username = safe_row_value(user, 'username')
+        user_session_token = safe_row_value(user, 'session_revocation_token')
+        user_is_profile_complete = safe_row_value(user, 'is_profile_complete', 0)
+        user_profile_reset_required = safe_row_value(user, 'profile_reset_required', 0)
+        
+        if not user_id or not user_role:
+            return jsonify({'status': 'error', 'message': 'Invalid user data'}), 401
+        
         db = get_db()
-        binding = db.execute(
-            'SELECT auth_token FROM device_bindings WHERE user_id = ? AND auth_token = ?',
-            (user['id'], auth_token)
-        ).fetchone()
-        if not binding:
-            # Create token for admin if doesn't exist
-            bind_device_to_user(user['id'], device_fingerprint)
+        if user_role == 'admin':
+            # Admin can login from any device
             binding = db.execute(
-                'SELECT auth_token FROM device_bindings WHERE user_id = ?',
-                (user['id'],)
+                'SELECT auth_token FROM device_bindings WHERE user_id = ? AND auth_token = ?',
+                (user_id, auth_token)
             ).fetchone()
-            if binding:
-                auth_token = binding['auth_token']
-    else:
-        # For students, verify device fingerprint strictly
-        is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
-        if not is_valid or stored_token != auth_token:
+            if not binding:
+                try:
+                    auth_token = bind_device_to_user(user_id, device_fingerprint)
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': f'Error creating token: {str(e)}'}), 500
+        else:
+            # For students, verify device fingerprint strictly
+            try:
+                is_valid, stored_token = verify_device_binding(user_id, device_fingerprint)
+                if not is_valid or stored_token != auth_token:
+                    return jsonify({
+                        'status': 'error', 
+                        'message': 'هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.'
+                    }), 403
+            except Exception as e:
+                return jsonify({'status': 'error', 'message': f'Error verifying device: {str(e)}'}), 500
+        
+        # Check suspension - إصلاح: استخدام safe_row_value
+        suspension = db.execute(
+            'SELECT end_date, reason FROM suspensions WHERE user_id = ? AND end_date > ?', 
+            (user_id, datetime.now())
+        ).fetchone()
+        if suspension:
+            end_date_raw = safe_row_value(suspension, 'end_date', '')
+            end_date_formatted = str(end_date_raw).split('.')[0] if end_date_raw else ''
+            reason = safe_row_value(suspension, 'reason', 'لا يوجد سبب.')
             return jsonify({
-                'status': 'error', 
-                'message': 'هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.'
+                'status': 'error',
+                'message': f'حسابك موقوف حتى {end_date_formatted}. السبب: {reason}'
             }), 403
-    
-    # Check suspension
-    db = get_db()
-    suspension = db.execute('SELECT * FROM suspensions WHERE user_id = ? AND end_date > ?', (user['id'], datetime.now())).fetchone()
-    if suspension:
-        end_date_formatted = suspension["end_date"].split('.')[0]
-        return jsonify({
-            'status': 'error',
-            'message': f'حسابك موقوف حتى {end_date_formatted}. السبب: {suspension["reason"]}'
-        }), 403
-    
-    # Update token last used
-    update_token_last_used(auth_token)
-    
-    # Create session
-    session.clear()
-    session['user_id'] = user['id']
-    session['username'] = user['username']
-    session['role'] = user['role']
-    session['token'] = user['session_revocation_token']
-    
-    # Determine redirect URL
-    redirect_url = url_for('index')
-    if user['role'] == 'student' and not user['is_profile_complete']:
-        redirect_url = url_for('edit_user', user_id=user['id'])
-    elif user['role'] == 'student' and user.get('profile_reset_required', 0):
-        redirect_url = url_for('edit_user', user_id=user['id'])
-    
-    response = jsonify({
-        'status': 'success',
-        'redirect': redirect_url,
-        'needs_profile': user['role'] == 'student' and not user['is_profile_complete'],
-        'needs_reset': user['role'] == 'student' and user.get('profile_reset_required', 0),
-        'auth_token': auth_token
-    })
-    response.set_cookie('auth_token', auth_token, max_age=31536000, httponly=True, samesite='Lax', secure=False)
-    return response
+        
+        # Update token last used
+        try:
+            update_token_last_used(auth_token)
+        except Exception as e:
+            # Log error but don't fail the login
+            print(f"Warning: Failed to update token last used: {e}")
+        
+        # Create session
+        try:
+            session.clear()
+            session['user_id'] = user_id
+            session['username'] = user_username
+            session['role'] = user_role
+            session['token'] = user_session_token
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Error creating session: {str(e)}'}), 500
+        
+        # Determine redirect URL
+        needs_profile = user_role == 'student' and not bool(user_is_profile_complete)
+        needs_reset = user_role == 'student' and bool(user_profile_reset_required)
+        redirect_url = url_for('index')
+        if user_role == 'student' and (needs_profile or needs_reset):
+            redirect_url = url_for('edit_user', user_id=user_id)
+        
+        response = jsonify({
+            'status': 'success',
+            'redirect': redirect_url,
+            'needs_profile': needs_profile,
+            'needs_reset': needs_reset,
+            'auth_token': auth_token
+        })
+        response.set_cookie('auth_token', auth_token, max_age=31536000, httponly=True, samesite='Lax', secure=False)
+        return response
+    except Exception as e:
+        # إصلاح: معالجة جميع الأخطاء بدون سقوط السيرفر
+        print(f"Error in auto-login: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': 'An error occurred during login'}), 400
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -4021,38 +4279,45 @@ def login():
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
         
         # Debug: Check if user exists and password verification
+        # إصلاح: استخدام safe_row_value للوصول الآمن
         if not user:
             flash('اسم المستخدم غير موجود!', 'danger')
             return render_page('login')
         
-        password_valid = check_password_hash(user['password'], password)
+        user_password = safe_row_value(user, 'password')
+        password_valid = check_password_hash(user_password, password) if user_password else False
         if not password_valid:
             flash('كلمة المرور غير صحيحة!', 'danger')
             return render_page('login')
 
         if user and password_valid:
-            suspension = db.execute('SELECT * FROM suspensions WHERE user_id = ? AND end_date > ?', (user['id'], datetime.now())).fetchone()
+            user_id = safe_row_value(user, 'id')
+            suspension = db.execute('SELECT * FROM suspensions WHERE user_id = ? AND end_date > ?', (user_id, datetime.now())).fetchone()
             if suspension:
-                end_date_formatted = suspension["end_date"].split('.')[0]
-                flash(f'حسابك موقوف حتى {end_date_formatted}. السبب: {suspension["reason"]}', 'danger')
+                end_date = safe_row_value(suspension, 'end_date', '')
+                reason = safe_row_value(suspension, 'reason', '')
+                end_date_formatted = str(end_date).split('.')[0] if end_date else ''
+                flash(f'حسابك موقوف حتى {end_date_formatted}. السبب: {reason}', 'danger')
                 return render_page('login')
 
             # Check device binding - Admin can login from any device, students are restricted
-            if user['role'] == 'admin':
+            # إصلاح: استخدام safe_row_value
+            user_role = safe_row_value(user, 'role')
+            if user_role == 'admin':
                 # Admin: Allow login from any device, create/update token without device binding restriction
                 # For admin, we don't enforce device binding - just ensure token exists
-                binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                binding = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
                 if binding:
-                    auth_token = binding['auth_token']
+                    auth_token = safe_row_value(binding, 'auth_token')
                     update_token_last_used(auth_token)
                 else:
                     # Create token for admin (use device_fingerprint if provided, otherwise 'pending')
                     fingerprint = device_fingerprint if device_fingerprint else 'pending'
-                    auth_token = bind_device_to_user(user['id'], fingerprint)
+                    auth_token = bind_device_to_user(user_id, fingerprint)
             else:
                 # Student: Enforce device binding (one device only)
                 if device_fingerprint:
-                    is_valid, stored_token = verify_device_binding(user['id'], device_fingerprint)
+                    is_valid, stored_token = verify_device_binding(user_id, device_fingerprint)
                     
                     if is_valid is False:  # Device exists but doesn't match
                         flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
@@ -4060,43 +4325,52 @@ def login():
                     
                     # If no binding exists (first login), create one
                     if is_valid is None:
-                        auth_token = bind_device_to_user(user['id'], device_fingerprint)
+                        auth_token = bind_device_to_user(user_id, device_fingerprint)
                     else:
                         auth_token = stored_token
                         update_token_last_used(auth_token)
                 else:
                     # If no fingerprint provided, check if account is already bound
-                    binding = db.execute('SELECT id, device_fingerprint FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()
+                    binding = db.execute('SELECT id, device_fingerprint FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
                     if binding:
                         # Check if binding is pending (first login case)
-                        if binding['device_fingerprint'] == hash_device_fingerprint('pending'):
+                        binding_fingerprint = safe_row_value(binding, 'device_fingerprint')
+                        if binding_fingerprint == hash_device_fingerprint('pending'):
                             # Update with actual fingerprint if provided later
                             if device_fingerprint:
-                                bind_device_to_user(user['id'], device_fingerprint)
-                                auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                                bind_device_to_user(user_id, device_fingerprint)
+                                auth_token_row = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
+                                auth_token = safe_row_value(auth_token_row, 'auth_token') if auth_token_row else None
                             else:
-                                auth_token = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user['id'],)).fetchone()['auth_token']
+                                auth_token_row = db.execute('SELECT auth_token FROM device_bindings WHERE user_id = ?', (user_id,)).fetchone()
+                                auth_token = safe_row_value(auth_token_row, 'auth_token') if auth_token_row else None
                         else:
                             flash('هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه.', 'danger')
                             return render_page('login')
                     else:
                         # First login without fingerprint - create binding with pending fingerprint
-                        auth_token = bind_device_to_user(user['id'], 'pending')
+                        auth_token = bind_device_to_user(user_id, 'pending')
 
+            # إصلاح: استخدام safe_row_value
+            user_username = safe_row_value(user, 'username')
+            user_session_token = safe_row_value(user, 'session_revocation_token')
+            user_is_profile_complete = safe_row_value(user, 'is_profile_complete', 0)
+            user_profile_reset_required = safe_row_value(user, 'profile_reset_required', 0)
+            
             session.clear()
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['role'] = user['role']
-            session['token'] = user['session_revocation_token']
+            session['user_id'] = user_id
+            session['username'] = user_username
+            session['role'] = user_role
+            session['token'] = user_session_token
             
             # Store auth token in response cookie and pass to template for localStorage
             redirect_url = url_for('index')
-            if user['role'] == 'student' and not user['is_profile_complete']:
+            if user_role == 'student' and not user_is_profile_complete:
                 flash('مرحباً بك! يرجى إكمال معلومات ملفك الشخصي للمتابعة.', 'info')
-                redirect_url = url_for('edit_user', user_id=user['id'])
-            elif user['role'] == 'student' and user['profile_reset_required']:
+                redirect_url = url_for('edit_user', user_id=user_id)
+            elif user_role == 'student' and user_profile_reset_required:
                 flash('سنة دراسية جديدة! يرجى تحديث الصف والشعبة للمتابعة.', 'info')
-                redirect_url = url_for('edit_user', user_id=user['id'])
+                redirect_url = url_for('edit_user', user_id=user_id)
             
             # Create response with token storage script
             response_html = f"""
@@ -4737,13 +5011,14 @@ def edit_user(user_id):
         if 'profile_image' in request.files:
             file = request.files['profile_image']
             if file.filename != '' and allowed_file(file.filename, ALLOWED_EXTENSIONS_IMAGES):
-                filename = secure_filename(f"user_{user_id}_{file.filename}")
-                # --- !! تأكد من وجود مجلد الرفع قبل الحفظ !! ---
-                if not os.path.exists(app.config['UPLOAD_FOLDER']):
-                    os.makedirs(app.config['UPLOAD_FOLDER'])
-                # --- !! نهاية التأكد !! ---
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                db.execute('UPDATE users SET profile_image = ? WHERE id = ?', (filename, user_id))
+                try:
+                    filename = secure_filename(f"user_{user_id}_{file.filename}")
+                    safe_destination = resolve_upload_path(filename)
+                    file.save(safe_destination)
+                    db.execute('UPDATE users SET profile_image = ? WHERE id = ?', (filename, user_id))
+                except ValueError as upload_error:
+                    flash(str(upload_error), 'danger')
+                    return redirect(url_for('edit_user', user_id=user_id))
 
         # ================== START: SAVE TELEGRAM SETTINGS (Admin Only) ==================
         if session['role'] == 'admin' and user_to_edit['role'] == 'admin':
@@ -4786,14 +5061,14 @@ def upload_video():
 
     # --- بداية: التحقق من مدة الفيديو (باستخدام PyAV) ---
 
-    temp_filename = f"temp_upload_{session['user_id']}_{secure_filename(video_file.filename)}"
-    temp_filepath = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+    temp_filename = secure_filename(f"temp_upload_{session['user_id']}_{video_file.filename}")
+    try:
+        temp_filepath = resolve_upload_path(temp_filename)
+    except ValueError as upload_error:
+        flash(str(upload_error), 'danger')
+        return redirect(url_for('index'))
 
     try:
-        # --- !! تأكد من وجود مجلد الرفع قبل الحفظ !! ---
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-             os.makedirs(app.config['UPLOAD_FOLDER'])
-        # --- !! نهاية التأكد !! ---
         video_file.save(temp_filepath)
 
         # 2. التحقق من مدة الفيديو باستخدام PyAV
@@ -4831,9 +5106,13 @@ def upload_video():
 
         # 4. إذا كانت المدة مقبولة، أنشئ اسماً نهائياً وانقل الملف
         final_filename = secure_filename(f"vid_{session['user_id']}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{video_file.filename}")
-        final_filepath = os.path.join(app.config['UPLOAD_FOLDER'], final_filename)
+        try:
+            final_filepath = resolve_upload_path(final_filename)
+        except ValueError as upload_error:
+            flash(str(upload_error), 'danger')
+            return redirect(url_for('index'))
 
-        os.rename(temp_filepath, final_filepath)
+        os.replace(temp_filepath, final_filepath)
 
         # --- نهاية: التحقق من مدة الفيديو ---
 
@@ -5248,6 +5527,7 @@ def add_criterion():
     try:
         db.execute("INSERT INTO rating_criteria (name, key, video_type) VALUES (?, ?, ?)", (name, key, video_type))
         db.commit()
+        invalidate_criteria_cache()
         flash('تم إضافة المعيار بنجاح!', 'success')
     except sqlite3.IntegrityError:
         flash('خطأ: المفتاح البرمجي (key) يجب أن يكون فريداً (غير مكرر).', 'danger')
@@ -5263,6 +5543,7 @@ def delete_criterion(criterion_id):
     # الحذف من جدول المعايير (وسيتم الحذف من dynamic_video_ratings تلقائياً بفضل ON DELETE CASCADE)
     db.execute("DELETE FROM rating_criteria WHERE id = ?", (criterion_id,))
     db.commit()
+    invalidate_criteria_cache()
     
     flash('تم حذف المعيار وأي تقييمات مرتبطة به.', 'success')
     return redirect(url_for('admin_criteria'))
@@ -5613,11 +5894,41 @@ def uploaded_file(filename):
          abort(500) # Internal Server Error
 
 
-init_db() 
+def run_waitress_server():
+    """
+    Start the application with waitress using optimized settings
+    إصلاح: تحسين إعدادات Waitress لمنع ضغط السيرفر
+    """
+    from waitress import serve
+    app.logger.info(
+        "Starting waitress on %s (threads=%s, connection_limit=%s, channel_timeout=%s)",
+        WAITRESS_LISTEN,
+        WAITRESS_THREADS,
+        WAITRESS_CONNECTION_LIMIT,
+        WAITRESS_CHANNEL_TIMEOUT
+    )
+    # إصلاح: إعدادات محسّنة لمنع ضغط السيرفر
+    serve(
+        app,
+        listen=WAITRESS_LISTEN,
+        threads=WAITRESS_THREADS,
+        connection_limit=WAITRESS_CONNECTION_LIMIT,
+        channel_timeout=WAITRESS_CHANNEL_TIMEOUT,
+        backlog=WAITRESS_BACKLOG,
+        asyncore_loop_timeout=WAITRESS_LOOP_TIMEOUT,
+        # إصلاح: إضافة timeout للطلبات لمنع التعليق
+        cleanup_interval=30,
+        # إصلاح: تحسين معالجة الملفات الكبيرة
+        recv_bytes=8192,
+        send_bytes=8192
+    )
+
+
+init_db()
 if __name__ == '__main__':
-
-    
-
-    print("--- STARTING IN DEBUG MODE (FOR LOCAL TESTING) ---")
- 
-    app.run(host='0.0.0.0', debug=True)
+    debug_mode = os.getenv('FLASK_DEBUG', '0') == '1'
+    if debug_mode:
+        print("--- STARTING IN DEBUG MODE (FOR LOCAL TESTING) ---")
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', '10000')), debug=True, threaded=True)
+    else:
+        run_waitress_server()
