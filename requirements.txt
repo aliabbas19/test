@@ -3,3 +3,4 @@ werkzeug
 av
 waitress
 reportlab
+gunicorn
