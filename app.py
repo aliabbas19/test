@@ -391,6 +391,234 @@ base_html = """
             margin-left: 5px;
             color: #0d6efd;
         }
+
+        /* ================== START: RESPONSIVE IMPROVEMENTS ================== */
+        /* RTL Support */
+        [dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+
+        /* Tables - Horizontal scroll on mobile instead of shrinking */
+        .table-responsive {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+        @media (max-width: 768px) {
+            .table-responsive {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .table {
+                min-width: 600px; /* Prevent table from shrinking too much */
+                width: 100%;
+            }
+        }
+
+        /* Forms - Full width on mobile, vertical layout */
+        @media (max-width: 768px) {
+            .form-control,
+            .form-select,
+            .form-check-input {
+                width: 100%;
+            }
+            .row.g-3 > *,
+            .row > .col-md-3,
+            .row > .col-md-4,
+            .row > .col-md-6,
+            .row > .col-md-8 {
+                width: 100%;
+                flex: 0 0 100%;
+                max-width: 100%;
+                margin-bottom: 1rem;
+            }
+            /* Vertical form layout on mobile */
+            .row.g-3 {
+                flex-direction: column;
+            }
+        }
+
+        /* Cards and containers - Better spacing on mobile */
+        @media (max-width: 768px) {
+            .card {
+                margin-bottom: 1rem;
+            }
+            .main-content {
+                padding: 15px !important;
+            }
+            .container {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        }
+
+        /* Video containers - Better sizing */
+        .video-container {
+            width: 100%;
+            max-width: 100%;
+        }
+        @media (max-width: 768px) {
+            .video-container {
+                width: 100%;
+            }
+            video {
+                width: 100%;
+                height: auto;
+            }
+        }
+
+        /* Button groups - Stack vertically on mobile */
+        @media (max-width: 768px) {
+            .btn-group {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+            }
+            .btn-group .btn {
+                width: 100%;
+                margin-bottom: 0.25rem;
+                border-radius: 0.25rem !important;
+            }
+            .btn-group .btn:first-child {
+                border-top-left-radius: 0.25rem !important;
+                border-top-right-radius: 0.25rem !important;
+                border-bottom-left-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+            }
+            .btn-group .btn:last-child {
+                border-top-left-radius: 0 !important;
+                border-top-right-radius: 0 !important;
+                border-bottom-left-radius: 0.25rem !important;
+                border-bottom-right-radius: 0.25rem !important;
+            }
+        }
+
+        /* Comments section - Better mobile layout */
+        @media (max-width: 768px) {
+            .comment {
+                flex-direction: column;
+            }
+            .comment-body {
+                margin-right: 0 !important;
+                margin-top: 0.5rem;
+            }
+        }
+
+        /* Admin post - Better mobile */
+        @media (max-width: 768px) {
+            .admin-post-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .admin-post-header .admin-icon {
+                margin-left: 0;
+                margin-bottom: 0.5rem;
+            }
+        }
+
+        /* Stat cards - Stack on mobile */
+        @media (max-width: 768px) {
+            .stat-card {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Filter forms - Stack on mobile */
+        @media (max-width: 768px) {
+            form.row.g-3 {
+                flex-direction: column;
+            }
+            form.row.g-3 .col-auto,
+            form.row.g-3 .col-md-3,
+            form.row.g-3 .col-md-4 {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+
+        /* Rating forms - Better mobile layout */
+        @media (max-width: 768px) {
+            .rating-form .row {
+                flex-direction: column;
+            }
+            .rating-form .col-md-4,
+            .rating-form .col-md-6,
+            .rating-form .col-6 {
+                width: 100%;
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+        }
+
+        /* Profile picture and cover - Better mobile */
+        @media (max-width: 480px) {
+            .cover-image-container {
+                height: 150px;
+            }
+            .profile-picture {
+                width: 100px;
+                height: 100px;
+            }
+            .profile-picture-container {
+                bottom: -50px;
+                right: 15px;
+            }
+        }
+
+        /* Prevent elements from shrinking - use scroll instead */
+        @media (max-width: 768px) {
+            .main-content {
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+            .card-body {
+                overflow-x: auto;
+                overflow-y: visible;
+            }
+        }
+
+        /* Better spacing for small screens */
+        @media (max-width: 480px) {
+            .mb-4 {
+                margin-bottom: 1rem !important;
+            }
+            .mt-4 {
+                margin-top: 1rem !important;
+            }
+            .p-3 {
+                padding: 0.75rem !important;
+            }
+        }
+
+        /* Flexbox improvements for RTL */
+        [dir="rtl"] .d-flex {
+            flex-direction: row-reverse;
+        }
+        [dir="rtl"] .ms-2 {
+            margin-right: 0.5rem !important;
+            margin-left: 0 !important;
+        }
+        [dir="rtl"] .me-2 {
+            margin-left: 0.5rem !important;
+            margin-right: 0 !important;
+        }
+
+        /* Grid improvements for cards */
+        @media (max-width: 768px) {
+            .row.row-cols-1.row-cols-md-2 {
+                display: flex;
+                flex-direction: column;
+            }
+            .row.row-cols-1.row-cols-md-2 > .col {
+                width: 100%;
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+        }
+        /* ================== END: RESPONSIVE IMPROVEMENTS ================== */
     </style>
 </head>
 <body>
@@ -2340,6 +2568,23 @@ edit_user_html = """
                                 {% if user.profile_image %}<img src="{{ url_for('uploaded_file', filename=user.profile_image) }}" alt="Profile Image" width="100" class="mt-2 rounded">{% endif %}
                             </div>
 
+                            {# START: TELEGRAM SETTINGS (Admin Only) #}
+                            {% if session['role'] == 'admin' and user.role == 'admin' %}
+                            <h4 class="mt-4">إعدادات تليجرام</h4>
+                            <hr>
+                            <div class="mb-3">
+                                <label for="telegram_bot_token" class="form-label">Telegram Bot Token</label>
+                                <input type="text" class="form-control" id="telegram_bot_token" name="telegram_bot_token" value="{{ telegram_settings.bot_token if telegram_settings else '' }}" placeholder="أدخل Bot Token">
+                                <small class="form-text text-muted">يمكنك الحصول على Bot Token من @BotFather في تليجرام</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="telegram_chat_id" class="form-label">Telegram Chat ID</label>
+                                <input type="text" class="form-control" id="telegram_chat_id" name="telegram_chat_id" value="{{ telegram_settings.chat_id if telegram_settings else '' }}" placeholder="أدخل Chat ID">
+                                <small class="form-text text-muted">يمكنك الحصول على Chat ID من @userinfobot في تليجرام</small>
+                            </div>
+                            {% endif %}
+                            {# END: TELEGRAM SETTINGS #}
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary btn-lg">حفظ التغييرات</button>
                                 {# START: MODIFIED - Disable cancel button if profile update is required #}
@@ -2927,6 +3172,16 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )''')
         
+        # ================== START: TELEGRAM SETTINGS TABLE ==================
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS telegram_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_token TEXT,
+                chat_id TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )''')
+        # ================== END: TELEGRAM SETTINGS TABLE ==================
+        
         # --- إضافة المعايير الافتراضية (القديمة) إلى الجدول الجديد ---
         cursor.execute("SELECT COUNT(id) FROM rating_criteria")
         if cursor.fetchone()[0] == 0:
@@ -3195,6 +3450,137 @@ def get_champion_statuses():
     return statuses
 # ================== END: MODIFIED get_champion_statuses ==================
 
+# ================== START: TELEGRAM FUNCTIONS ==================
+def get_telegram_settings():
+    """Get Telegram bot settings from database"""
+    db = get_db()
+    settings = db.execute("SELECT bot_token, chat_id FROM telegram_settings ORDER BY id DESC LIMIT 1").fetchone()
+    if settings and settings['bot_token'] and settings['chat_id']:
+        return {'bot_token': settings['bot_token'], 'chat_id': settings['chat_id']}
+    return None
+
+def save_telegram_settings(bot_token, chat_id):
+    """Save Telegram bot settings to database"""
+    db = get_db()
+    # Check if settings exist
+    existing = db.execute("SELECT id FROM telegram_settings ORDER BY id DESC LIMIT 1").fetchone()
+    if existing:
+        db.execute("UPDATE telegram_settings SET bot_token = ?, chat_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                   (bot_token, chat_id, existing['id']))
+    else:
+        db.execute("INSERT INTO telegram_settings (bot_token, chat_id) VALUES (?, ?)", (bot_token, chat_id))
+    db.commit()
+
+def send_telegram_message(bot_token, chat_id, message):
+    """Send a message to Telegram"""
+    try:
+        import urllib.request
+        import urllib.parse
+        import json
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        data = {
+            'chat_id': chat_id,
+            'text': message
+        }
+        
+        req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode())
+        with urllib.request.urlopen(req, timeout=10) as response:
+            result = json.loads(response.read().decode())
+            return result.get('ok', False)
+    except Exception as e:
+        print(f"Error sending Telegram message: {e}")
+        return False
+
+def get_week_champions():
+    """Get all current week champions with their details"""
+    db = get_db()
+    today = date.today()
+    days_since_saturday = (today.weekday() + 2) % 7
+    start_of_week = today - timedelta(days=days_since_saturday)
+    
+    manhaji_criteria_count = db.execute("SELECT COUNT(id) FROM rating_criteria WHERE video_type = 'منهجي'").fetchone()[0]
+    if manhaji_criteria_count == 0:
+        return []
+    
+    start_of_previous_week = start_of_week - timedelta(days=7)
+    
+    champions = []
+    students = db.execute("SELECT id, username, full_name, class_name, section_name FROM users WHERE role = 'student'").fetchall()
+    
+    for student in students:
+        student_id = student['id']
+        carried_stars = 0
+        bank_entry = db.execute(
+            "SELECT banked_stars FROM star_bank WHERE user_id = ? AND last_updated_week_start_date = ?",
+            (student_id, start_of_previous_week.strftime('%Y-%m-%d'))
+        ).fetchone()
+        if bank_entry:
+            carried_stars = bank_entry['banked_stars']
+        
+        new_stars_row = db.execute("""
+            SELECT SUM(dr.is_awarded) as stars
+            FROM dynamic_video_ratings dr
+            JOIN videos v ON dr.video_id = v.id
+            JOIN rating_criteria rc ON dr.criterion_id = rc.id
+            WHERE rc.video_type = 'منهجي' AND v.user_id = ? AND date(v.timestamp) >= ?
+        """, (student_id, start_of_week.strftime('%Y-%m-%d'))).fetchone()
+        
+        new_stars = new_stars_row['stars'] if new_stars_row and new_stars_row['stars'] is not None else 0
+        total_score_this_week = carried_stars + new_stars
+        
+        if total_score_this_week >= manhaji_criteria_count:
+            champions.append({
+                'id': student_id,
+                'name': student['full_name'] or student['username'],
+                'class': student['class_name'] or 'غير محدد',
+                'section': student['section_name'] or 'غير محدد'
+            })
+    
+    return champions
+
+def send_week_champions_to_telegram():
+    """Send week champions to Telegram automatically"""
+    settings = get_telegram_settings()
+    if not settings:
+        return  # No settings configured, silently skip
+    
+    champions = get_week_champions()
+    if not champions:
+        return  # No champions this week
+    
+    # Build message
+    message = "🏆 أبطال الأسبوع\n\n"
+    for champion in champions:
+        message += f"👤 الاسم: {champion['name']}\n"
+        message += f"🏫 الصف: {champion['class']}\n"
+        message += f"📌 الشعبة: {champion['section']}\n\n"
+    
+    # Send message
+    send_telegram_message(settings['bot_token'], settings['chat_id'], message)
+
+# Track last known champions to detect new ones (stored in memory)
+_last_known_champions = None
+
+def check_and_send_new_champions():
+    """Check for new champions and send to Telegram if detected"""
+    global _last_known_champions
+    current_champions = get_week_champions()
+    current_ids = {c['id'] for c in current_champions}
+    
+    # If this is the first run, initialize but don't send
+    if _last_known_champions is None:
+        _last_known_champions = current_ids
+        return
+    
+    # Check if there are new champions
+    new_champions = current_ids - _last_known_champions
+    if new_champions:  # Send if there are new champions
+        send_week_champions_to_telegram()
+    
+    # Update last known champions
+    _last_known_champions = current_ids
+# ================== END: TELEGRAM FUNCTIONS ==================
 
 # ================== START: NEW FUNCTION FOR SUPERHEROES ==================
 def get_superhero_champions_details():
@@ -4124,6 +4510,14 @@ def edit_user(user_id):
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 db.execute('UPDATE users SET profile_image = ? WHERE id = ?', (filename, user_id))
 
+        # ================== START: SAVE TELEGRAM SETTINGS (Admin Only) ==================
+        if session['role'] == 'admin' and user_to_edit['role'] == 'admin':
+            telegram_bot_token = request.form.get('telegram_bot_token', '').strip()
+            telegram_chat_id = request.form.get('telegram_chat_id', '').strip()
+            if telegram_bot_token or telegram_chat_id:
+                save_telegram_settings(telegram_bot_token, telegram_chat_id)
+        # ================== END: SAVE TELEGRAM SETTINGS ==================
+
         db.commit()
 
         if user_id == session.get('user_id') and new_username != session.get('username'):
@@ -4135,7 +4529,13 @@ def edit_user(user_id):
         else:
             return redirect(url_for('edit_user', user_id=user_id))
 
-    return render_template_string(edit_user_html, user=user_to_edit)
+    # ================== START: GET TELEGRAM SETTINGS FOR TEMPLATE ==================
+    telegram_settings = None
+    if session.get('role') == 'admin' and user_to_edit['role'] == 'admin':
+        telegram_settings = get_telegram_settings()
+    # ================== END: GET TELEGRAM SETTINGS ==================
+
+    return render_template_string(edit_user_html, user=user_to_edit, telegram_settings=telegram_settings)
 # ----------------- VIDEO & INTERACTION ROUTES -----------------
 @app.route('/upload_video', methods=['POST'])
 def upload_video():
@@ -4285,6 +4685,15 @@ def rate_video(video_id):
     # 7. التحقق من حالة "البطل الخارق"
     if video['video_type'] == 'اثرائي' and total_stars == max_stars and max_stars > 0:
         champion_message = "أصبح هذا الطالب بطلاً خارقاً!"
+
+    # ================== START: TELEGRAM AUTO-SEND ==================
+    # Check for new week champions and send to Telegram automatically
+    if video['video_type'] == 'منهجي':  # Only check for week champions (منهجي)
+        try:
+            check_and_send_new_champions()
+        except Exception as e:
+            print(f"Error checking/sending champions to Telegram: {e}")
+    # ================== END: TELEGRAM AUTO-SEND ==================
 
     # 8. إرجاع البيانات المحدثة إلى الواجهة
     return jsonify({
