@@ -794,7 +794,7 @@ base_html = """
     <footer class="copyright-footer">
         <label class="copyright-label">
             <i class="fas fa-copyright"></i>
-        شركة عراق تك- IraQ TecH للحلول البرمجية 07838657087
+        شركة عراق تك- IraQ TecH للحلول البرمجية
         </label>
     </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -1029,15 +1029,26 @@ index_content_block = """
         </div>
         {# END: MODIFICATION #}
         
-        {# START: Delete button for video owner and admin - directly under video #}
+        {# START: Delete and Archive buttons for video owner and admin - directly under video #}
         {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
         <div class="mt-2 mb-2 text-center">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+            {% if session['role'] == 'admin' %}
+                {% if video.is_archived == 0 %}
+                <form action="{{ url_for('archive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من نقل هذا الفيديو إلى الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-archive me-1"></i>نقل إلى الأرشيف</button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('unarchive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من إرجاع هذا الفيديو من الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-info"><i class="fas fa-undo me-1"></i>إرجاع من الأرشيف</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline ms-2" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
                 <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
             </form>
         </div>
         {% endif %}
-        {# END: Delete button #}
+        {# END: Delete and Archive buttons #}
         
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
@@ -1146,7 +1157,7 @@ index_content_block = """
 # ----------------- MODIFIED archive_content_block -----------------
 archive_content_block = """
 <h1 class="mb-2 text-center">أرشيف الفيديوهات</h1>
-<p class="text-center text-muted">هنا تجد الفيديوهات التي تم نشرها منذ أكثر من 7 أيام. <strong>ملاحظة:</strong> الأرشفة تتم فقط يوم الجمعة.</p>
+<p class="text-center text-muted">هنا تجد الفيديوهات المؤرشفة. <strong>ملاحظة:</strong> الأرشفة التلقائية تتم يوم الجمعة، ويمكن للمسؤول أرشفة الفيديوهات يدوياً في أي وقت.</p>
 
 {% if archive_message %}
 <div class="alert alert-info text-center" role="alert">
@@ -1231,15 +1242,26 @@ archive_content_block = """
         </div>
         {# END: MODIFICATION #}
 
-        {# START: Delete button for video owner and admin - directly under video #}
+        {# START: Delete and Archive buttons for video owner and admin - directly under video #}
         {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
         <div class="mt-2 mb-2 text-center">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+            {% if session['role'] == 'admin' %}
+                {% if video.is_archived == 0 %}
+                <form action="{{ url_for('archive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من نقل هذا الفيديو إلى الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-archive me-1"></i>نقل إلى الأرشيف</button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('unarchive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من إرجاع هذا الفيديو من الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-info"><i class="fas fa-undo me-1"></i>إرجاع من الأرشيف</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline ms-2" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
                 <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
             </form>
         </div>
         {% endif %}
-        {# END: Delete button #}
+        {# END: Delete and Archive buttons #}
 
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
@@ -4750,19 +4772,16 @@ def index():
 
     posts = db.execute('SELECT p.content, p.timestamp, u.username, u.full_name FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
     
-    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
-    # الأرشفة تتم فقط يوم الجمعة
-    is_friday = datetime.now().weekday() == 4  # 4 = Friday
-    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS) if is_friday else datetime.min
-
+    # --- START: MODIFICATION FOR AUTO ARCHIVING ---
+    # عرض الفيديوهات غير المؤرشفة فقط في الصفحة الرئيسية
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, v.is_archived, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
-        WHERE v.timestamp >= ? AND v.is_approved = 1
+        WHERE v.is_archived = 0 AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
-    params = [cutoff_date]
+    params = []
 
     if session.get('role') == 'admin' and selected_class:
         video_query += ' AND TRIM(u.class_name) = ?'
@@ -4815,42 +4834,19 @@ def archive():
 
     all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
 
-    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
-    # الأرشفة تتم فقط يوم الجمعة
-    is_friday = datetime.now().weekday() == 4  # 4 = Friday
-    if not is_friday:
-        # إذا لم يكن يوم الجمعة، لا تظهر أي فيديوهات في الأرشيف
-        archived_videos = []
-        video_ids = []
-        video_ratings, video_likes, user_liked_videos, video_comments = get_common_video_data(video_ids)
-        return render_page('archive',
-                           videos=archived_videos,
-                           video_ratings=video_ratings,
-                           video_comments=video_comments,
-                           champion_statuses=get_champion_statuses(),
-                           video_likes=video_likes,
-                           user_liked_videos=user_liked_videos,
-                           scripts_block=common_scripts_block,
-                           all_classes=all_classes,
-                           selected_class=selected_class,
-                           start_date=start_date,
-                           end_date=end_date,
-                           selected_video_type=selected_video_type,
-                           all_criteria=g.all_criteria,
-                           archive_message="الأرشيف متاح فقط يوم الجمعة. يرجى العودة يوم الجمعة لعرض الفيديوهات المؤرشفة."
-                          )
-    
-    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
-    # --- END: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
+    # --- START: MODIFICATION FOR AUTO ARCHIVING ---
+    # عرض الفيديوهات المؤرشفة فقط في صفحة الأرشيف
+    # الأرشفة التلقائية تتم يوم الجمعة، لكن الأرشيف متاح للعرض في أي وقت
+    # (خاصة للفيديوهات المؤرشفة يدوياً)
 
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, v.is_archived, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
-        WHERE v.timestamp < ? AND v.is_approved = 1
+        WHERE v.is_archived = 1 AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
-    params = [cutoff_date]
+    params = []
 
     if selected_class:
         query += ' AND TRIM(u.class_name) = ?'
@@ -5269,6 +5265,70 @@ def delete_video(video_id):
 
     # أعد التوجيه إلى الصفحة السابقة
     return redirect(request.referrer or url_for('index'))
+
+# --- START: MANUAL ARCHIVE ROUTES ---
+@app.route('/video/<int:video_id>/archive', methods=['POST'])
+def archive_video(video_id):
+    """أرشفة فيديو يدوياً (للمسؤول فقط)"""
+    if session.get('role') != 'admin':
+        flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    db = get_db()
+    video = db.execute('SELECT id, is_approved FROM videos WHERE id = ?', (video_id,)).fetchone()
+    
+    if not video:
+        flash('الفيديو غير موجود.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    if video['is_approved'] != 1:
+        flash('لا يمكن أرشفة فيديو غير معتمد.', 'warning')
+        return redirect(request.referrer or url_for('index'))
+    
+    try:
+        now = datetime.now()
+        db.execute('''
+            UPDATE videos 
+            SET is_archived = 1, archived_date = ?
+            WHERE id = ?
+        ''', (now, video_id))
+        db.commit()
+        flash('تم نقل الفيديو إلى الأرشيف بنجاح.', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'حدث خطأ أثناء أرشفة الفيديو: {e}', 'danger')
+    
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/video/<int:video_id>/unarchive', methods=['POST'])
+def unarchive_video(video_id):
+    """إرجاع فيديو من الأرشيف (للمسؤول فقط)"""
+    if session.get('role') != 'admin':
+        flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    db = get_db()
+    video = db.execute('SELECT id FROM videos WHERE id = ?', (video_id,)).fetchone()
+    
+    if not video:
+        flash('الفيديو غير موجود.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    try:
+        db.execute('''
+            UPDATE videos 
+            SET is_archived = 0, archived_date = NULL
+            WHERE id = ?
+        ''', (video_id,))
+        db.commit()
+        flash('تم إرجاع الفيديو من الأرشيف بنجاح.', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'حدث خطأ أثناء إرجاع الفيديو: {e}', 'danger')
+    
+    return redirect(request.referrer or url_for('index'))
+# --- END: MANUAL ARCHIVE ROUTES ---
+
 # --- END: NEW ROUTES FOR VIDEO APPROVAL ---
 
 
