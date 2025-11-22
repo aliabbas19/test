@@ -3371,6 +3371,13 @@ def init_db():
         if 'is_approved' not in video_columns:
             cursor.execute("ALTER TABLE videos ADD COLUMN is_approved INTEGER DEFAULT 0")
         # --- END: MODIFICATION FOR VIDEO APPROVAL ---
+        
+        # --- START: MODIFICATION FOR AUTO ARCHIVING ---
+        if 'is_archived' not in video_columns:
+            cursor.execute("ALTER TABLE videos ADD COLUMN is_archived INTEGER DEFAULT 0")
+        if 'archived_date' not in video_columns:
+            cursor.execute("ALTER TABLE videos ADD COLUMN archived_date DATETIME")
+        # --- END: MODIFICATION FOR AUTO ARCHIVING ---
 
         cursor.execute("PRAGMA table_info(comments)")
         comment_columns = [column['name'] for column in cursor.fetchall()]
@@ -3458,6 +3465,55 @@ def load_all_criteria(force_refresh=False):
         _CRITERIA_CACHE['value'] = cached_payload
         _CRITERIA_CACHE['expires'] = now + CRITERIA_CACHE_TTL
     return cached_payload
+
+# --- START: AUTO ARCHIVE FUNCTION ---
+def auto_archive_videos():
+    """
+    أرشفة تلقائية للفيديوهات الأقدم من 7 أيام يوم الجمعة
+    يتم استدعاؤها مرة واحدة في اليوم الجمعة
+    """
+    try:
+        # ملف لتتبع آخر مرة تم فيها تنفيذ الأرشفة
+        archive_tracker_file = os.path.join(PERSISTENT_DATA_PATH, 'last_archive_date.txt')
+        today = date.today().isoformat()
+        
+        # التحقق من آخر مرة تم فيها تنفيذ الأرشفة
+        if os.path.exists(archive_tracker_file):
+            with open(archive_tracker_file, 'r') as f:
+                last_archive_date = f.read().strip()
+            if last_archive_date == today:
+                # تم تنفيذ الأرشفة اليوم بالفعل
+                return
+        
+        # التحقق من أن اليوم هو الجمعة
+        now = datetime.now()
+        if now.weekday() != 4:  # 4 = Friday
+            return
+        
+        db = get_db()
+        cutoff_date = now - timedelta(days=VIDEO_ARCHIVE_DAYS)
+        
+        # أرشفة الفيديوهات الأقدم من 7 أيام والتي لم يتم أرشفتها بعد
+        result = db.execute('''
+            UPDATE videos 
+            SET is_archived = 1, archived_date = ?
+            WHERE timestamp < ? 
+            AND is_approved = 1 
+            AND is_archived = 0
+        ''', (now, cutoff_date))
+        
+        archived_count = result.rowcount
+        db.commit()
+        
+        if archived_count > 0:
+            print(f"تم أرشفة {archived_count} فيديو تلقائياً يوم الجمعة")
+            # حفظ تاريخ آخر أرشفة
+            os.makedirs(PERSISTENT_DATA_PATH, exist_ok=True)
+            with open(archive_tracker_file, 'w') as f:
+                f.write(today)
+    except Exception as e:
+        print(f"خطأ في الأرشفة التلقائية: {e}")
+# --- END: AUTO ARCHIVE FUNCTION ---
 
 def invalidate_criteria_cache():
     """Reset cached criteria after writes."""
@@ -4153,6 +4209,15 @@ def before_request_handler():
             except Exception as e:
                 print(f"Error in scheduled champion check: {e}")
     # ================== END: Check and send champions ==================
+    
+    # ================== START: Auto archive videos on Friday ==================
+    # أرشفة تلقائية للفيديوهات يوم الجمعة
+    if request.endpoint not in ['static', 'uploaded_file']:
+        try:
+            auto_archive_videos()
+        except Exception as e:
+            print(f"Error in auto archive: {e}")
+    # ================== END: Auto archive videos ==================
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
@@ -4750,19 +4815,16 @@ def index():
 
     posts = db.execute('SELECT p.content, p.timestamp, u.username, u.full_name FROM posts p JOIN users u ON p.user_id = u.id WHERE u.role = "admin" ORDER BY p.timestamp DESC').fetchall()
     
-    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
-    # الأرشفة تتم فقط يوم الجمعة
-    is_friday = datetime.now().weekday() == 4  # 4 = Friday
-    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS) if is_friday else datetime.min
-
+    # --- START: MODIFICATION FOR AUTO ARCHIVING ---
+    # عرض الفيديوهات غير المؤرشفة فقط في الصفحة الرئيسية
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
         SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
-        WHERE v.timestamp >= ? AND v.is_approved = 1
+        WHERE v.is_archived = 0 AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
-    params = [cutoff_date]
+    params = []
 
     if session.get('role') == 'admin' and selected_class:
         video_query += ' AND TRIM(u.class_name) = ?'
@@ -4815,8 +4877,9 @@ def archive():
 
     all_classes = db.execute("SELECT DISTINCT TRIM(class_name) as class_name FROM users WHERE role = 'student' AND class_name IS NOT NULL AND TRIM(class_name) != '' ORDER BY class_name").fetchall()
 
-    # --- START: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
-    # الأرشفة تتم فقط يوم الجمعة
+    # --- START: MODIFICATION FOR AUTO ARCHIVING ---
+    # عرض الفيديوهات المؤرشفة فقط في صفحة الأرشيف
+    # الأرشفة تتم تلقائياً يوم الجمعة، لكن الأرشيف متاح للعرض يوم الجمعة فقط
     is_friday = datetime.now().weekday() == 4  # 4 = Friday
     if not is_friday:
         # إذا لم يكن يوم الجمعة، لا تظهر أي فيديوهات في الأرشيف
@@ -4840,17 +4903,15 @@ def archive():
                            archive_message="الأرشيف متاح فقط يوم الجمعة. يرجى العودة يوم الجمعة لعرض الفيديوهات المؤرشفة."
                           )
     
-    cutoff_date = datetime.now() - timedelta(days=VIDEO_ARCHIVE_DAYS)
-    # --- END: MODIFICATION FOR FRIDAY-ONLY ARCHIVING ---
-
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
         SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
-        WHERE v.timestamp < ? AND v.is_approved = 1
+        WHERE v.is_archived = 1 AND v.is_approved = 1
     '''
     # --- END: MODIFICATION FOR VIDEO APPROVAL ---
-    params = [cutoff_date]
+    params = []
+    # --- END: MODIFICATION FOR AUTO ARCHIVING ---
 
     if selected_class:
         query += ' AND TRIM(u.class_name) = ?'
