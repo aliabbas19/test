@@ -1029,15 +1029,26 @@ index_content_block = """
         </div>
         {# END: MODIFICATION #}
         
-        {# START: Delete button for video owner and admin - directly under video #}
+        {# START: Delete and Archive buttons for video owner and admin - directly under video #}
         {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
         <div class="mt-2 mb-2 text-center">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+            {% if session['role'] == 'admin' %}
+                {% if video.is_archived == 0 %}
+                <form action="{{ url_for('archive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من نقل هذا الفيديو إلى الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-archive me-1"></i>نقل إلى الأرشيف</button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('unarchive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من إرجاع هذا الفيديو من الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-info"><i class="fas fa-undo me-1"></i>إرجاع من الأرشيف</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline ms-2" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
                 <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
             </form>
         </div>
         {% endif %}
-        {# END: Delete button #}
+        {# END: Delete and Archive buttons #}
         
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
@@ -1231,15 +1242,26 @@ archive_content_block = """
         </div>
         {# END: MODIFICATION #}
 
-        {# START: Delete button for video owner and admin - directly under video #}
+        {# START: Delete and Archive buttons for video owner and admin - directly under video #}
         {% if session['user_id'] == video.user_id or session['role'] == 'admin' %}
         <div class="mt-2 mb-2 text-center">
-            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
+            {% if session['role'] == 'admin' %}
+                {% if video.is_archived == 0 %}
+                <form action="{{ url_for('archive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من نقل هذا الفيديو إلى الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-archive me-1"></i>نقل إلى الأرشيف</button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('unarchive_video', video_id=video.id) }}" method="post" class="d-inline" onsubmit="return confirm('هل أنت متأكد من إرجاع هذا الفيديو من الأرشيف؟');">
+                    <button type="submit" class="btn btn-sm btn-info"><i class="fas fa-undo me-1"></i>إرجاع من الأرشيف</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            <form action="{{ url_for('delete_video', video_id=video.id) }}" method="post" class="d-inline ms-2" onsubmit="return confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا.');">
                 <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash me-1"></i>حذف الفيديو</button>
             </form>
         </div>
         {% endif %}
-        {# END: Delete button #}
+        {# END: Delete and Archive buttons #}
 
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div class="like-section">
@@ -4819,7 +4841,7 @@ def index():
     # عرض الفيديوهات غير المؤرشفة فقط في الصفحة الرئيسية
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     video_query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, v.is_archived, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.is_archived = 0 AND v.is_approved = 1
     '''
@@ -4905,7 +4927,7 @@ def archive():
     
     # --- START: MODIFICATION FOR VIDEO APPROVAL ---
     query = '''
-        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
+        SELECT v.id, v.title, v.filepath, v.timestamp, v.video_type, v.is_approved, v.is_archived, u.username, u.full_name, u.role, u.id as user_id, u.profile_image
         FROM videos v JOIN users u ON v.user_id = u.id
         WHERE v.is_archived = 1 AND v.is_approved = 1
     '''
@@ -5330,6 +5352,70 @@ def delete_video(video_id):
 
     # أعد التوجيه إلى الصفحة السابقة
     return redirect(request.referrer or url_for('index'))
+
+# --- START: MANUAL ARCHIVE ROUTES ---
+@app.route('/video/<int:video_id>/archive', methods=['POST'])
+def archive_video(video_id):
+    """أرشفة فيديو يدوياً (للمسؤول فقط)"""
+    if session.get('role') != 'admin':
+        flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    db = get_db()
+    video = db.execute('SELECT id, is_approved FROM videos WHERE id = ?', (video_id,)).fetchone()
+    
+    if not video:
+        flash('الفيديو غير موجود.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    if video['is_approved'] != 1:
+        flash('لا يمكن أرشفة فيديو غير معتمد.', 'warning')
+        return redirect(request.referrer or url_for('index'))
+    
+    try:
+        now = datetime.now()
+        db.execute('''
+            UPDATE videos 
+            SET is_archived = 1, archived_date = ?
+            WHERE id = ?
+        ''', (now, video_id))
+        db.commit()
+        flash('تم نقل الفيديو إلى الأرشيف بنجاح.', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'حدث خطأ أثناء أرشفة الفيديو: {e}', 'danger')
+    
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/video/<int:video_id>/unarchive', methods=['POST'])
+def unarchive_video(video_id):
+    """إرجاع فيديو من الأرشيف (للمسؤول فقط)"""
+    if session.get('role') != 'admin':
+        flash('ليس لديك الصلاحية للقيام بهذا الإجراء.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    db = get_db()
+    video = db.execute('SELECT id FROM videos WHERE id = ?', (video_id,)).fetchone()
+    
+    if not video:
+        flash('الفيديو غير موجود.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+    
+    try:
+        db.execute('''
+            UPDATE videos 
+            SET is_archived = 0, archived_date = NULL
+            WHERE id = ?
+        ''', (video_id,))
+        db.commit()
+        flash('تم إرجاع الفيديو من الأرشيف بنجاح.', 'success')
+    except Exception as e:
+        db.rollback()
+        flash(f'حدث خطأ أثناء إرجاع الفيديو: {e}', 'danger')
+    
+    return redirect(request.referrer or url_for('index'))
+# --- END: MANUAL ARCHIVE ROUTES ---
+
 # --- END: NEW ROUTES FOR VIDEO APPROVAL ---
 
 
