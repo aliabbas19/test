@@ -545,6 +545,46 @@ base_html = """
             }
         }
 
+        /* Admin actions group - Ensure all buttons are visible on mobile */
+        .admin-actions-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .admin-action-form {
+            display: inline-block;
+            margin: 0;
+        }
+        .admin-action-form .btn {
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .admin-actions-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            .admin-action-form {
+                display: block;
+                width: 100%;
+            }
+            .admin-action-form .btn {
+                width: 100%;
+                margin-bottom: 0.25rem;
+            }
+            .admin-suspend-form {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .admin-suspend-form .admin-suspend-duration,
+            .admin-suspend-form .admin-suspend-reason {
+                width: 100% !important;
+            }
+            .admin-suspend-form .btn {
+                width: 100%;
+            }
+        }
+
         /* Comments section - Better mobile layout */
         @media (max-width: 768px) {
             .comment {
@@ -1718,12 +1758,12 @@ admin_dashboard_content_block = """
                              {% if student.end_date %}<br><small>السبب: {{ student.reason }}</small>{% endif %}
                         </td>
                         <td>
-                            <div class="btn-group" role="group">
+                            <div class="btn-group admin-actions-group" role="group">
                                 <a href="{{ url_for('edit_user', user_id=student.id) }}" class="btn btn-sm btn-secondary">تعديل</a>
-                                <form action="{{ url_for('kick_student', student_id=student.id) }}" method="post" class="d-inline">
+                                <form action="{{ url_for('kick_student', student_id=student.id) }}" method="post" class="admin-action-form">
                                     <button type="submit" class="btn btn-sm btn-dark">طرد</button>
                                 </form>
-                                <form action="{{ url_for('toggle_mute', student_id=student.id) }}" method="post" class="d-inline">
+                                <form action="{{ url_for('toggle_mute', student_id=student.id) }}" method="post" class="admin-action-form">
                                     {% if student.is_muted %}
                                         <button type="submit" class="btn btn-sm btn-info">إلغاء الكتم</button>
                                     {% else %}
@@ -1732,12 +1772,12 @@ admin_dashboard_content_block = """
                                 </form>
                                 <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">إلغاء ربط الجهاز</button>
                                 {% if student.end_date %}
-                                    <form action="{{ url_for('lift_suspension', student_id=student.id) }}" method="post" class="d-inline">
+                                    <form action="{{ url_for('lift_suspension', student_id=student.id) }}" method="post" class="admin-action-form">
                                         <button type="submit" class="btn btn-sm btn-success">رفع الإيقاف</button>
                                     </form>
                                 {% else %}
-                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="d-inline-flex align-items-center gap-1">
-                                        <select name="duration" class="form-select form-select-sm" style="width: auto;">
+                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="admin-action-form admin-suspend-form">
+                                        <select name="duration" class="form-select form-select-sm admin-suspend-duration">
                                             <option value="hour">ساعة</option>
                                             <option value="day">يوم</option>
                                             <option value="week">أسبوع</option>
@@ -1745,7 +1785,7 @@ admin_dashboard_content_block = """
                                             <option value="year">سنة</option>
                                             <option value="permanent">دائم</option>
                                         </select>
-                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm">
+                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm admin-suspend-reason">
                                         <button type="submit" class="btn btn-sm btn-warning text-nowrap">إيقاف</button>
                                     </form>
                                 {% endif %}
