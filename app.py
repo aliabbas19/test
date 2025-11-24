@@ -1736,14 +1736,40 @@ admin_dashboard_content_block = """
 <div class="card mt-4 shadow-sm">
     <div class="card-header"><h4>إدارة الطلاب</h4></div>
     <div class="card-body">
+        <!-- Search and Filter Controls -->
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="studentSearchInput" class="form-control" placeholder="ابحث عن طالب (الاسم، اسم المستخدم، الصف، الشعبة)...">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select id="studentStatusFilter" class="form-select">
+                    <option value="all">جميع الحالات</option>
+                    <option value="active">نشط</option>
+                    <option value="suspended">موقوف</option>
+                    <option value="muted">مكتوم</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <small class="text-muted" id="studentCount">إجمالي الطلاب: <span id="totalCount">{{ students|length }}</span> | النتائج: <span id="filteredCount">{{ students|length }}</span></small>
+        </div>
+        
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead>
                     <tr><th>الصورة</th><th>اسم الطالب</th><th>الحالة</th><th>إجراءات</th></tr>
                 </thead>
-                <tbody>
+                <tbody id="studentsTableBody">
                     {% for student in students %}
-                    <tr>
+                    <tr class="student-row" 
+                        data-full-name="{{ (student.full_name or '')|lower }}"
+                        data-username="{{ (student.username or '')|lower }}"
+                        data-class-name="{{ (student.class_name or '')|lower }}"
+                        data-section-name="{{ (student.section_name or '')|lower }}"
+                        data-status="{% if student.end_date %}suspended{% elif student.is_muted %}muted{% else %}active{% endif %}">
                         <td>
                             <img src="{{ url_for('uploaded_file', filename=(student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle" width="50" height="50" style="object-fit: cover;">
                         </td>
@@ -1813,6 +1839,12 @@ admin_dashboard_content_block = """
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="noResultsRow" class="d-none">
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">لا توجد نتائج مطابقة للبحث</p>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -1875,6 +1907,76 @@ function deleteStudent(studentId, studentName) {
         alert('حدث خطأ أثناء حذف حساب الطالب');
     });
 }
+
+// Search and Filter Functions
+(function() {
+    const searchInput = document.getElementById('studentSearchInput');
+    const statusFilter = document.getElementById('studentStatusFilter');
+    const studentRows = document.querySelectorAll('.student-row');
+    const noResultsRow = document.getElementById('noResultsRow');
+    const totalCountSpan = document.getElementById('totalCount');
+    const filteredCountSpan = document.getElementById('filteredCount');
+    
+    const totalCount = studentRows.length;
+    totalCountSpan.textContent = totalCount;
+    
+    function filterStudents() {
+        const searchTerm = (searchInput.value || '').toLowerCase().trim();
+        const statusValue = statusFilter.value;
+        let visibleCount = 0;
+        let hasVisibleRows = false;
+        
+        studentRows.forEach(row => {
+            const fullName = row.getAttribute('data-full-name') || '';
+            const username = row.getAttribute('data-username') || '';
+            const className = row.getAttribute('data-class-name') || '';
+            const sectionName = row.getAttribute('data-section-name') || '';
+            const status = row.getAttribute('data-status') || '';
+            
+            // Search filter
+            const matchesSearch = !searchTerm || 
+                fullName.includes(searchTerm) || 
+                username.includes(searchTerm) || 
+                className.includes(searchTerm) || 
+                sectionName.includes(searchTerm);
+            
+            // Status filter
+            const matchesStatus = statusValue === 'all' || status === statusValue;
+            
+            // Show/hide row
+            if (matchesSearch && matchesStatus) {
+                row.classList.remove('d-none');
+                visibleCount++;
+                hasVisibleRows = true;
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+        
+        // Show/hide "no results" message
+        if (hasVisibleRows) {
+            noResultsRow.classList.add('d-none');
+        } else {
+            noResultsRow.classList.remove('d-none');
+        }
+        
+        // Update count
+        filteredCountSpan.textContent = visibleCount;
+    }
+    
+    // Event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', filterStudents);
+        searchInput.addEventListener('keyup', filterStudents);
+    }
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterStudents);
+    }
+    
+    // Initial filter (in case of pre-filled values)
+    filterStudents();
+})();
 </script>
 """
 
