@@ -1699,11 +1699,14 @@ admin_dashboard_content_block = """
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead>
-                    <tr><th>اسم الطالب</th><th>الحالة</th><th>إجراءات</th></tr>
+                    <tr><th>الصورة</th><th>اسم الطالب</th><th>الحالة</th><th>إجراءات</th></tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
                     <tr>
+                        <td>
+                            <img src="{{ url_for('uploaded_file', filename=(student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle" width="50" height="50" style="object-fit: cover;">
+                        </td>
                         <td>
                            <a href="{{ url_for('profile', username=student.username) }}">{{ student.full_name or student.username }}</a>
                         </td>
@@ -1718,26 +1721,41 @@ admin_dashboard_content_block = """
                              {% if student.end_date %}<br><small>السبب: {{ student.reason }}</small>{% endif %}
                         </td>
                         <td>
-                            <div class="btn-group" role="group">
-                                <a href="{{ url_for('edit_user', user_id=student.id) }}" class="btn btn-sm btn-secondary">تعديل</a>
+                            <div class="d-flex flex-wrap gap-2" role="group">
+                                <a href="{{ url_for('edit_user', user_id=student.id) }}" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-edit me-1"></i>تعديل
+                                </a>
                                 <form action="{{ url_for('kick_student', student_id=student.id) }}" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-dark">طرد</button>
+                                    <button type="submit" class="btn btn-sm btn-dark">
+                                        <i class="fas fa-sign-out-alt me-1"></i>طرد
+                                    </button>
                                 </form>
                                 <form action="{{ url_for('toggle_mute', student_id=student.id) }}" method="post" class="d-inline">
                                     {% if student.is_muted %}
-                                        <button type="submit" class="btn btn-sm btn-info">إلغاء الكتم</button>
+                                        <button type="submit" class="btn btn-sm btn-info">
+                                            <i class="fas fa-volume-up me-1"></i>إلغاء الكتم
+                                        </button>
                                     {% else %}
-                                        <button type="submit" class="btn btn-sm btn-secondary">كتم</button>
+                                        <button type="submit" class="btn btn-sm btn-secondary">
+                                            <i class="fas fa-volume-mute me-1"></i>كتم
+                                        </button>
                                     {% endif %}
                                 </form>
-                                <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">إلغاء ربط الجهاز</button>
+                                <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">
+                                    <i class="fas fa-unlink me-1"></i>إلغاء ربط الجهاز
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteStudent({{ student.id }}, '{{ student.full_name or student.username }}')">
+                                    <i class="fas fa-trash me-1"></i>حذف الحساب
+                                </button>
                                 {% if student.end_date %}
                                     <form action="{{ url_for('lift_suspension', student_id=student.id) }}" method="post" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-success">رفع الإيقاف</button>
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="fas fa-check-circle me-1"></i>رفع الإيقاف
+                                        </button>
                                     </form>
                                 {% else %}
-                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="d-inline-flex align-items-center gap-1">
-                                        <select name="duration" class="form-select form-select-sm" style="width: auto;">
+                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="d-inline-flex align-items-center gap-1 flex-wrap">
+                                        <select name="duration" class="form-select form-select-sm" style="width: auto; min-width: 100px;">
                                             <option value="hour">ساعة</option>
                                             <option value="day">يوم</option>
                                             <option value="week">أسبوع</option>
@@ -1745,8 +1763,10 @@ admin_dashboard_content_block = """
                                             <option value="year">سنة</option>
                                             <option value="permanent">دائم</option>
                                         </select>
-                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm">
-                                        <button type="submit" class="btn btn-sm btn-warning text-nowrap">إيقاف</button>
+                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm" style="min-width: 150px;">
+                                        <button type="submit" class="btn btn-sm btn-warning text-nowrap">
+                                            <i class="fas fa-ban me-1"></i>إيقاف
+                                        </button>
                                     </form>
                                 {% endif %}
                             </div>
@@ -1783,6 +1803,36 @@ function unbindDevice(userId) {
     .catch(error => {
         console.error('Error:', error);
         alert('حدث خطأ أثناء إلغاء ربط الجهاز');
+    });
+}
+
+function deleteStudent(studentId, studentName) {
+    if (!confirm('هل أنت متأكد تماماً من حذف حساب الطالب "' + studentName + '"؟\n\nسيتم حذف:\n- حساب الطالب\n- جميع الفيديوهات\n- جميع التعليقات\n- جميع الرسائل\n- جميع التقييمات\n- جميع البيانات المرتبطة\n\nلا يمكن التراجع عن هذا الإجراء!')) {
+        return;
+    }
+    
+    if (!confirm('تأكيد نهائي: هل أنت متأكد 100% من حذف هذا الحساب؟')) {
+        return;
+    }
+    
+    fetch('/admin/delete_student/' + studentId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('تم حذف حساب الطالب بنجاح');
+            location.reload();
+        } else {
+            alert('حدث خطأ: ' + (data.error || 'غير معروف'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء حذف حساب الطالب');
     });
 }
 </script>
@@ -5706,6 +5756,79 @@ def toggle_mute(student_id):
     else:
         flash('الطالب غير موجود.', 'danger')
     return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    """حذف حساب طالب مع جميع البيانات المرتبطة"""
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "error": "غير مصرح"}), 403
+    
+    db = get_db()
+    
+    # التحقق من وجود الطالب
+    student = db.execute('SELECT id, username, profile_image FROM users WHERE id = ? AND role = ?', (student_id, 'student')).fetchone()
+    if not student:
+        return jsonify({"status": "error", "error": "الطالب غير موجود"}), 404
+    
+    try:
+        # 1. حذف جميع الفيديوهات المرتبطة بالطالب (مع ملفاتها)
+        videos = db.execute('SELECT id, filepath FROM videos WHERE user_id = ?', (student_id,)).fetchall()
+        for video in videos:
+            # حذف التعليقات المرتبطة بالفيديو
+            db.execute('DELETE FROM comments WHERE video_id = ?', (video['id'],))
+            # حذف الإعجابات المرتبطة بالفيديو
+            db.execute('DELETE FROM video_likes WHERE video_id = ?', (video['id'],))
+            # حذف التقييمات المرتبطة بالفيديو
+            db.execute('DELETE FROM dynamic_video_ratings WHERE video_id = ?', (video['id'],))
+            # حذف ملف الفيديو
+            if video['filepath']:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], video['filepath'])
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        print(f"Error deleting video file {video['filepath']}: {e}")
+        
+        # حذف الفيديوهات من قاعدة البيانات
+        db.execute('DELETE FROM videos WHERE user_id = ?', (student_id,))
+        
+        # 2. حذف التعليقات التي كتبها الطالب (في فيديوهات أخرى)
+        db.execute('DELETE FROM comments WHERE user_id = ?', (student_id,))
+        
+        # 3. حذف الإعجابات التي أعجب بها الطالب
+        db.execute('DELETE FROM video_likes WHERE user_id = ?', (student_id,))
+        
+        # 4. حذف الرسائل المرتبطة بالطالب
+        db.execute('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?', (student_id, student_id))
+        
+        # 5. حذف الإيقافات
+        db.execute('DELETE FROM suspensions WHERE user_id = ?', (student_id,))
+        
+        # 6. حذف ربط الأجهزة
+        db.execute('DELETE FROM device_bindings WHERE user_id = ?', (student_id,))
+        
+        # 7. حذف المنشورات (إن وجدت)
+        db.execute('DELETE FROM posts WHERE user_id = ?', (student_id,))
+        
+        # 8. حذف صورة الملف الشخصي (إن لم تكن الصورة الافتراضية)
+        if student['profile_image'] and student['profile_image'] != 'default.png':
+            try:
+                profile_image_path = os.path.join(app.config['UPLOAD_FOLDER'], student['profile_image'])
+                if os.path.exists(profile_image_path):
+                    os.remove(profile_image_path)
+            except Exception as e:
+                print(f"Error deleting profile image {student['profile_image']}: {e}")
+        
+        # 9. حذف حساب الطالب نفسه
+        db.execute('DELETE FROM users WHERE id = ?', (student_id,))
+        
+        db.commit()
+        return jsonify({"status": "success", "message": "تم حذف حساب الطالب بنجاح"})
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting student: {e}")
+        return jsonify({"status": "error", "error": f"حدث خطأ أثناء حذف الحساب: {str(e)}"}), 500
 
 # ================== START: MODIFIED start_new_year ==================
 @app.route('/admin/start_new_year', methods=['POST'])
