@@ -1909,7 +1909,7 @@ function deleteStudent(studentId, studentName) {
 }
 
 // Search and Filter Functions
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('studentSearchInput');
     const statusFilter = document.getElementById('studentStatusFilter');
     const studentRows = document.querySelectorAll('.student-row');
@@ -1917,8 +1917,23 @@ function deleteStudent(studentId, studentName) {
     const totalCountSpan = document.getElementById('totalCount');
     const filteredCountSpan = document.getElementById('filteredCount');
     
+    // Check if elements exist
+    if (!searchInput || !statusFilter || !noResultsRow || !totalCountSpan || !filteredCountSpan) {
+        console.error('Search elements not found');
+        return;
+    }
+    
     const totalCount = studentRows.length;
-    totalCountSpan.textContent = totalCount;
+    console.log('Total students found:', totalCount);
+    
+    if (totalCountSpan) {
+        totalCountSpan.textContent = totalCount;
+    }
+    
+    if (totalCount === 0) {
+        console.warn('No student rows found');
+        return;
+    }
     
     function filterStudents() {
         const searchTerm = (searchInput.value || '').toLowerCase().trim();
@@ -1933,7 +1948,7 @@ function deleteStudent(studentId, studentName) {
             const sectionName = row.getAttribute('data-section-name') || '';
             const status = row.getAttribute('data-status') || '';
             
-            // Search filter
+            // Search filter - check all fields
             const matchesSearch = !searchTerm || 
                 fullName.includes(searchTerm) || 
                 username.includes(searchTerm) || 
@@ -1945,38 +1960,49 @@ function deleteStudent(studentId, studentName) {
             
             // Show/hide row
             if (matchesSearch && matchesStatus) {
+                row.style.display = '';
                 row.classList.remove('d-none');
                 visibleCount++;
                 hasVisibleRows = true;
             } else {
+                row.style.display = 'none';
                 row.classList.add('d-none');
             }
         });
         
         // Show/hide "no results" message
         if (hasVisibleRows) {
-            noResultsRow.classList.add('d-none');
+            if (noResultsRow) {
+                noResultsRow.classList.add('d-none');
+            }
         } else {
-            noResultsRow.classList.remove('d-none');
+            if (noResultsRow) {
+                noResultsRow.classList.remove('d-none');
+            }
         }
         
         // Update count
-        filteredCountSpan.textContent = visibleCount;
+        if (filteredCountSpan) {
+            filteredCountSpan.textContent = visibleCount;
+        }
+        
+        console.log('Filter applied - Search:', searchTerm, 'Status:', statusValue, 'Visible:', visibleCount);
     }
     
     // Event listeners
-    if (searchInput) {
-        searchInput.addEventListener('input', filterStudents);
-        searchInput.addEventListener('keyup', filterStudents);
-    }
+    searchInput.addEventListener('input', filterStudents);
+    searchInput.addEventListener('keyup', filterStudents);
+    searchInput.addEventListener('paste', function() {
+        setTimeout(filterStudents, 10);
+    });
     
-    if (statusFilter) {
-        statusFilter.addEventListener('change', filterStudents);
-    }
+    statusFilter.addEventListener('change', filterStudents);
     
-    // Initial filter (in case of pre-filled values)
+    // Initial filter
     filterStudents();
-})();
+    
+    console.log('Search and filter initialized successfully');
+});
 </script>
 """
 
