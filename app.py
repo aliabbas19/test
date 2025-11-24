@@ -545,6 +545,46 @@ base_html = """
             }
         }
 
+        /* Admin actions group - Ensure all buttons are visible on mobile */
+        .admin-actions-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .admin-action-form {
+            display: inline-block;
+            margin: 0;
+        }
+        .admin-action-form .btn {
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .admin-actions-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            .admin-action-form {
+                display: block;
+                width: 100%;
+            }
+            .admin-action-form .btn {
+                width: 100%;
+                margin-bottom: 0.25rem;
+            }
+            .admin-suspend-form {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .admin-suspend-form .admin-suspend-duration,
+            .admin-suspend-form .admin-suspend-reason {
+                width: 100% !important;
+            }
+            .admin-suspend-form .btn {
+                width: 100%;
+            }
+        }
+
         /* Comments section - Better mobile layout */
         @media (max-width: 768px) {
             .comment {
