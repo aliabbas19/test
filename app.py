@@ -4263,6 +4263,7 @@ def get_week_champions():
 def send_week_champions_to_telegram():
     """Send week champions to Telegram automatically as PDF files grouped by class and section"""
     logging.info("Starting scheduled send_week_champions_to_telegram task")
+    temp_files = []  # Track temporary files for cleanup - initialize outside try block
     try:
         settings = get_telegram_settings()
         if not settings:
@@ -4283,7 +4284,6 @@ def send_week_champions_to_telegram():
             champions_by_class_section[key].append(champion)
         
         # Create and send PDF for each class-section group
-        temp_files = []  # Track temporary files for cleanup
         for (class_name, section_name), champions_list in champions_by_class_section.items():
             # Create PDF file
             pdf_path = create_champions_pdf(class_name, section_name, champions_list)
@@ -4318,7 +4318,9 @@ def scheduled_send_champions():
     """Wrapper function for scheduled task with proper error handling"""
     logging.info("Scheduled task triggered: send_week_champions_to_telegram")
     try:
-        send_week_champions_to_telegram()
+        # Create application context for background scheduler
+        with app.app_context():
+            send_week_champions_to_telegram()
     except Exception as e:
         logging.error(f"Error in scheduled_send_champions: {e}", exc_info=True)
 
