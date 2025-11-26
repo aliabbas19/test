@@ -6006,7 +6006,6 @@ def toggle_mute(student_id):
         flash('الطالب غير موجود.', 'danger')
     return redirect(url_for('admin_dashboard'))
 
-<<<<<<< HEAD
 @app.route('/admin/send_champions_telegram', methods=['POST'])
 def send_champions_telegram_manual():
     """إرسال تقرير أبطال الأسبوع إلى تيليجرام يدوياً (للمسؤول فقط)"""
