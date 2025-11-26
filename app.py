@@ -1951,11 +1951,18 @@ function sendChampionsReport() {
             'Content-Type': 'application/json',
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => Promise.reject(data));
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.status === 'success') {
+        if (data.status === 'success' || data.status === 'info') {
+            const alertClass = data.status === 'success' ? 'alert-success' : 'alert-info';
+            const icon = data.status === 'success' ? 'fa-check-circle' : 'fa-info-circle';
             if (statusDiv) {
-                statusDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>' + (data.message || 'تم إرسال التقرير بنجاح') + '</div>';
+                statusDiv.innerHTML = '<div class="alert ' + alertClass + '"><i class="fas ' + icon + ' me-1"></i>' + (data.message || 'تم إرسال التقرير بنجاح') + '</div>';
             }
             if (button) {
                 button.disabled = false;
@@ -6024,20 +6031,20 @@ def send_champions_telegram_manual():
                 "error": "إعدادات تيليجرام غير موجودة. يرجى إعداد bot_token و chat_id أولاً."
             }), 400
         
-        # Send the report
-        send_week_champions_to_telegram()
-        
-        # Check if there were champions to send
+        # Check if there are champions to send
         champions = get_week_champions()
         if not champions:
             return jsonify({
-                "status": "success", 
+                "status": "info", 
                 "message": "لا يوجد أبطال هذا الأسبوع لإرسالهم"
             })
         
+        # Send the report
+        send_week_champions_to_telegram()
+        
         return jsonify({
             "status": "success", 
-            "message": "تم إرسال تقرير الأبطال إلى تيليجرام بنجاح"
+            "message": f"تم إرسال تقرير {len(champions)} أبطال إلى تيليجرام بنجاح"
         })
     except Exception as e:
         logging.error(f"Error in manual send champions: {e}", exc_info=True)
