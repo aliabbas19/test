@@ -4,3 +4,4 @@ av
 waitress
 reportlab
 gunicorn
+APScheduler==3.10.4

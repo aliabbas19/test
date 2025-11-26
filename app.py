@@ -21,6 +21,9 @@ from werkzeug.utils import secure_filename
 from collections import defaultdict
 from datetime import datetime, timedelta, date
 from threading import Lock
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import logging
 
 
 # الصورة الأولى ستكون للغلاف، والثانية للصورة الشخصية
@@ -542,6 +545,46 @@ base_html = """
                 border-top-right-radius: 0 !important;
                 border-bottom-left-radius: 0.25rem !important;
                 border-bottom-right-radius: 0.25rem !important;
+            }
+        }
+
+        /* Admin actions group - Ensure all buttons are visible on mobile */
+        .admin-actions-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .admin-action-form {
+            display: inline-block;
+            margin: 0;
+        }
+        .admin-action-form .btn {
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .admin-actions-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            .admin-action-form {
+                display: block;
+                width: 100%;
+            }
+            .admin-action-form .btn {
+                width: 100%;
+                margin-bottom: 0.25rem;
+            }
+            .admin-suspend-form {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .admin-suspend-form .admin-suspend-duration,
+            .admin-suspend-form .admin-suspend-reason {
+                width: 100% !important;
+            }
+            .admin-suspend-form .btn {
+                width: 100%;
             }
         }
 
@@ -1656,7 +1699,7 @@ admin_dashboard_content_block = """
 
 <div class="row">
     {# ================== START: NEW Card for Criteria Management ================== #}
-    <div class="col-md-12 mb-4">
+    <div class="col-md-6 mb-4">
         <div class="card h-100 shadow-sm">
             <div class="card-header bg-info text-white"><h4><i class="fas fa-tasks me-2"></i>إدارة النظام</h4></div>
             <div class="card-body">
@@ -1667,6 +1710,22 @@ admin_dashboard_content_block = """
         </div>
     </div>
     {# ================== END: NEW Card for Criteria Management ================== #}
+    
+    {# ================== START: NEW Card for Telegram Reports ================== #}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-success text-white"><h4><i class="fas fa-paper-plane me-2"></i>إرسال التقارير</h4></div>
+            <div class="card-body">
+                <h5 class="card-title">إرسال تقرير الأبطال إلى تيليجرام</h5>
+                <p class="card-text">إرسال تقرير أبطال الأسبوع إلى تيليجرام يدوياً. (يتم الإرسال تلقائياً كل يوم أربعاء في الساعة 8 مساءً)</p>
+                <button type="button" class="btn btn-success" onclick="sendChampionsReport()">
+                    <i class="fas fa-paper-plane me-1"></i>إرسال التقرير الآن
+                </button>
+                <div id="telegramSendStatus" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+    {# ================== END: NEW Card for Telegram Reports ================== #}
 
     <div class="col-md-6 mb-4">
         <div class="card h-100 shadow-sm">
@@ -1696,14 +1755,43 @@ admin_dashboard_content_block = """
 <div class="card mt-4 shadow-sm">
     <div class="card-header"><h4>إدارة الطلاب</h4></div>
     <div class="card-body">
+        <!-- Search and Filter Controls -->
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" id="studentSearchInput" class="form-control" placeholder="ابحث عن طالب (الاسم، اسم المستخدم، الصف، الشعبة)...">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select id="studentStatusFilter" class="form-select">
+                    <option value="all">جميع الحالات</option>
+                    <option value="active">نشط</option>
+                    <option value="suspended">موقوف</option>
+                    <option value="muted">مكتوم</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <small class="text-muted" id="studentCount">إجمالي الطلاب: <span id="totalCount">{{ students|length }}</span> | النتائج: <span id="filteredCount">{{ students|length }}</span></small>
+        </div>
+        
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead>
-                    <tr><th>اسم الطالب</th><th>الحالة</th><th>إجراءات</th></tr>
+                    <tr><th>الصورة</th><th>اسم الطالب</th><th>الحالة</th><th>إجراءات</th></tr>
                 </thead>
-                <tbody>
+                <tbody id="studentsTableBody">
                     {% for student in students %}
-                    <tr>
+                    <tr class="student-row" 
+                        data-full-name="{{ (student.full_name or '')|lower }}"
+                        data-username="{{ (student.username or '')|lower }}"
+                        data-class-name="{{ (student.class_name or '')|lower }}"
+                        data-section-name="{{ (student.section_name or '')|lower }}"
+                        data-status="{% if student.end_date %}suspended{% elif student.is_muted %}muted{% else %}active{% endif %}">
+                        <td>
+                            <img src="{{ url_for('uploaded_file', filename=(student.profile_image or 'default.png')) }}" alt="Profile Image" class="rounded-circle" width="50" height="50" style="object-fit: cover;">
+                        </td>
                         <td>
                            <a href="{{ url_for('profile', username=student.username) }}">{{ student.full_name or student.username }}</a>
                         </td>
@@ -1718,26 +1806,41 @@ admin_dashboard_content_block = """
                              {% if student.end_date %}<br><small>السبب: {{ student.reason }}</small>{% endif %}
                         </td>
                         <td>
-                            <div class="btn-group" role="group">
-                                <a href="{{ url_for('edit_user', user_id=student.id) }}" class="btn btn-sm btn-secondary">تعديل</a>
+                            <div class="d-flex flex-wrap gap-2" role="group">
+                                <a href="{{ url_for('edit_user', user_id=student.id) }}" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-edit me-1"></i>تعديل
+                                </a>
                                 <form action="{{ url_for('kick_student', student_id=student.id) }}" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-dark">طرد</button>
+                                    <button type="submit" class="btn btn-sm btn-dark">
+                                        <i class="fas fa-sign-out-alt me-1"></i>طرد
+                                    </button>
                                 </form>
                                 <form action="{{ url_for('toggle_mute', student_id=student.id) }}" method="post" class="d-inline">
                                     {% if student.is_muted %}
-                                        <button type="submit" class="btn btn-sm btn-info">إلغاء الكتم</button>
+                                        <button type="submit" class="btn btn-sm btn-info">
+                                            <i class="fas fa-volume-up me-1"></i>إلغاء الكتم
+                                        </button>
                                     {% else %}
-                                        <button type="submit" class="btn btn-sm btn-secondary">كتم</button>
+                                        <button type="submit" class="btn btn-sm btn-secondary">
+                                            <i class="fas fa-volume-mute me-1"></i>كتم
+                                        </button>
                                     {% endif %}
                                 </form>
-                                <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">إلغاء ربط الجهاز</button>
+                                <button type="button" class="btn btn-sm btn-warning" onclick="unbindDevice({{ student.id }})">
+                                    <i class="fas fa-unlink me-1"></i>إلغاء ربط الجهاز
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteStudent({{ student.id }}, '{{ student.full_name or student.username }}')">
+                                    <i class="fas fa-trash me-1"></i>حذف الحساب
+                                </button>
                                 {% if student.end_date %}
                                     <form action="{{ url_for('lift_suspension', student_id=student.id) }}" method="post" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-success">رفع الإيقاف</button>
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="fas fa-check-circle me-1"></i>رفع الإيقاف
+                                        </button>
                                     </form>
                                 {% else %}
-                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="d-inline-flex align-items-center gap-1">
-                                        <select name="duration" class="form-select form-select-sm" style="width: auto;">
+                                    <form action="{{ url_for('suspend_student', student_id=student.id) }}" method="post" class="d-inline-flex align-items-center gap-1 flex-wrap">
+                                        <select name="duration" class="form-select form-select-sm" style="width: auto; min-width: 100px;">
                                             <option value="hour">ساعة</option>
                                             <option value="day">يوم</option>
                                             <option value="week">أسبوع</option>
@@ -1745,14 +1848,22 @@ admin_dashboard_content_block = """
                                             <option value="year">سنة</option>
                                             <option value="permanent">دائم</option>
                                         </select>
-                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm">
-                                        <button type="submit" class="btn btn-sm btn-warning text-nowrap">إيقاف</button>
+                                        <input type="text" name="reason" placeholder="السبب" class="form-control form-control-sm" style="min-width: 150px;">
+                                        <button type="submit" class="btn btn-sm btn-warning text-nowrap">
+                                            <i class="fas fa-ban me-1"></i>إيقاف
+                                        </button>
                                     </form>
                                 {% endif %}
                             </div>
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="noResultsRow" class="d-none">
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">لا توجد نتائج مطابقة للبحث</p>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -1785,6 +1896,188 @@ function unbindDevice(userId) {
         alert('حدث خطأ أثناء إلغاء ربط الجهاز');
     });
 }
+
+function deleteStudent(studentId, studentName) {
+    if (!confirm('هل أنت متأكد تماماً من حذف حساب الطالب "' + studentName + '"؟\n\nسيتم حذف:\n- حساب الطالب\n- جميع الفيديوهات\n- جميع التعليقات\n- جميع الرسائل\n- جميع التقييمات\n- جميع البيانات المرتبطة\n\nلا يمكن التراجع عن هذا الإجراء!')) {
+        return;
+    }
+    
+    if (!confirm('تأكيد نهائي: هل أنت متأكد 100% من حذف هذا الحساب؟')) {
+        return;
+    }
+    
+    fetch('/admin/delete_student/' + studentId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('تم حذف حساب الطالب بنجاح');
+            location.reload();
+        } else {
+            alert('حدث خطأ: ' + (data.error || 'غير معروف'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('حدث خطأ أثناء حذف حساب الطالب');
+    });
+}
+
+function sendChampionsReport() {
+    const statusDiv = document.getElementById('telegramSendStatus');
+    const button = event.target.closest('button');
+    
+    if (!confirm('هل تريد إرسال تقرير أبطال الأسبوع إلى تيليجرام الآن؟')) {
+        return;
+    }
+    
+    // Disable button and show loading
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>جاري الإرسال...';
+    }
+    
+    if (statusDiv) {
+        statusDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-1"></i>جاري إرسال التقرير...</div>';
+    }
+    
+    fetch('/admin/send_champions_telegram', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            if (statusDiv) {
+                statusDiv.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>' + (data.message || 'تم إرسال التقرير بنجاح') + '</div>';
+            }
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-paper-plane me-1"></i>إرسال التقرير الآن';
+            }
+        } else {
+            if (statusDiv) {
+                statusDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (data.error || 'حدث خطأ أثناء الإرسال') + '</div>';
+            }
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-paper-plane me-1"></i>إرسال التقرير الآن';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (statusDiv) {
+            statusDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-1"></i>حدث خطأ أثناء الإرسال</div>';
+        }
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-paper-plane me-1"></i>إرسال التقرير الآن';
+        }
+    });
+}
+
+// Search and Filter Functions
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('studentSearchInput');
+    const statusFilter = document.getElementById('studentStatusFilter');
+    const studentRows = document.querySelectorAll('.student-row');
+    const noResultsRow = document.getElementById('noResultsRow');
+    const totalCountSpan = document.getElementById('totalCount');
+    const filteredCountSpan = document.getElementById('filteredCount');
+    
+    // Check if elements exist
+    if (!searchInput || !statusFilter || !noResultsRow || !totalCountSpan || !filteredCountSpan) {
+        console.error('Search elements not found');
+        return;
+    }
+    
+    const totalCount = studentRows.length;
+    console.log('Total students found:', totalCount);
+    
+    if (totalCountSpan) {
+        totalCountSpan.textContent = totalCount;
+    }
+    
+    if (totalCount === 0) {
+        console.warn('No student rows found');
+        return;
+    }
+    
+    function filterStudents() {
+        const searchTerm = (searchInput.value || '').toLowerCase().trim();
+        const statusValue = statusFilter.value;
+        let visibleCount = 0;
+        let hasVisibleRows = false;
+        
+        studentRows.forEach(row => {
+            const fullName = row.getAttribute('data-full-name') || '';
+            const username = row.getAttribute('data-username') || '';
+            const className = row.getAttribute('data-class-name') || '';
+            const sectionName = row.getAttribute('data-section-name') || '';
+            const status = row.getAttribute('data-status') || '';
+            
+            // Search filter - check all fields
+            const matchesSearch = !searchTerm || 
+                fullName.includes(searchTerm) || 
+                username.includes(searchTerm) || 
+                className.includes(searchTerm) || 
+                sectionName.includes(searchTerm);
+            
+            // Status filter
+            const matchesStatus = statusValue === 'all' || status === statusValue;
+            
+            // Show/hide row
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+                row.classList.remove('d-none');
+                visibleCount++;
+                hasVisibleRows = true;
+            } else {
+                row.style.display = 'none';
+                row.classList.add('d-none');
+            }
+        });
+        
+        // Show/hide "no results" message
+        if (hasVisibleRows) {
+            if (noResultsRow) {
+                noResultsRow.classList.add('d-none');
+            }
+        } else {
+            if (noResultsRow) {
+                noResultsRow.classList.remove('d-none');
+            }
+        }
+        
+        // Update count
+        if (filteredCountSpan) {
+            filteredCountSpan.textContent = visibleCount;
+        }
+        
+        console.log('Filter applied - Search:', searchTerm, 'Status:', statusValue, 'Visible:', visibleCount);
+    }
+    
+    // Event listeners
+    searchInput.addEventListener('input', filterStudents);
+    searchInput.addEventListener('keyup', filterStudents);
+    searchInput.addEventListener('paste', function() {
+        setTimeout(filterStudents, 10);
+    });
+    
+    statusFilter.addEventListener('change', filterStudents);
+    
+    // Initial filter
+    filterStudents();
+    
+    console.log('Search and filter initialized successfully');
+});
 </script>
 """
 
@@ -3968,25 +4261,28 @@ def get_week_champions():
 
 def send_week_champions_to_telegram():
     """Send week champions to Telegram automatically as PDF files grouped by class and section"""
-    settings = get_telegram_settings()
-    if not settings:
-        return  # No settings configured, silently skip
-    
-    champions = get_week_champions()
-    if not champions:
-        return  # No champions this week
-    
-    # Group champions by class and section
-    champions_by_class_section = defaultdict(list)
-    for champion in champions:
-        class_name = champion['class'] or 'غير محدد'
-        section_name = champion['section'] or 'غير محدد'
-        key = (class_name, section_name)
-        champions_by_class_section[key].append(champion)
-    
-    # Create and send PDF for each class-section group
-    temp_files = []  # Track temporary files for cleanup
+    logging.info("Starting scheduled send_week_champions_to_telegram task")
     try:
+        settings = get_telegram_settings()
+        if not settings:
+            logging.warning("Telegram settings not configured, skipping send")
+            return  # No settings configured, silently skip
+        
+        champions = get_week_champions()
+        if not champions:
+            logging.info("No champions this week, skipping send")
+            return  # No champions this week
+        
+        # Group champions by class and section
+        champions_by_class_section = defaultdict(list)
+        for champion in champions:
+            class_name = champion['class'] or 'غير محدد'
+            section_name = champion['section'] or 'غير محدد'
+            key = (class_name, section_name)
+            champions_by_class_section[key].append(champion)
+        
+        # Create and send PDF for each class-section group
+        temp_files = []  # Track temporary files for cleanup
         for (class_name, section_name), champions_list in champions_by_class_section.items():
             # Create PDF file
             pdf_path = create_champions_pdf(class_name, section_name, champions_list)
@@ -3995,12 +4291,19 @@ def send_week_champions_to_telegram():
                 # Create caption for the file
                 caption = f"🏆 أبطال الأسبوع\nالصف: {class_name}\nالشعبة: {section_name}"
                 # Send PDF to Telegram
-                send_telegram_document(
+                success = send_telegram_document(
                     settings['bot_token'], 
                     settings['chat_id'], 
                     pdf_path, 
                     caption=caption
                 )
+                if success:
+                    logging.info(f"Successfully sent champions PDF for {class_name} - {section_name}")
+                else:
+                    logging.error(f"Failed to send champions PDF for {class_name} - {section_name}")
+        logging.info(f"Completed sending {len(temp_files)} champion PDFs to Telegram")
+    except Exception as e:
+        logging.error(f"Error in send_week_champions_to_telegram: {e}", exc_info=True)
     finally:
         # Clean up temporary files
         for temp_file in temp_files:
@@ -4008,7 +4311,15 @@ def send_week_champions_to_telegram():
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
             except Exception as e:
-                print(f"Error deleting temporary file {temp_file}: {e}")
+                logging.error(f"Error deleting temporary file {temp_file}: {e}")
+
+def scheduled_send_champions():
+    """Wrapper function for scheduled task with proper error handling"""
+    logging.info("Scheduled task triggered: send_week_champions_to_telegram")
+    try:
+        send_week_champions_to_telegram()
+    except Exception as e:
+        logging.error(f"Error in scheduled_send_champions: {e}", exc_info=True)
 
 # Track last known champions to detect new ones (stored in memory)
 _last_known_champions = None
@@ -4160,21 +4471,8 @@ def before_request_handler():
     g.criteria_key_map = criteria_payload.get('by_key', {})
     # ================== END: Load criteria ==================
     
-    # ================== START: Check and send champions on Wednesday at 8 PM ==================
-    # Only check on specific endpoints to reduce overhead
-    # Quick check: only proceed if it's Wednesday and hour is 20 (8 PM)
-    if request.endpoint not in ['static', 'uploaded_file']:
-        now = datetime.now()
-        current_weekday = now.weekday()
-        current_hour = now.hour
-        # Only check if it's Wednesday (2) and hour is 20 (8 PM)
-        # This ensures sending happens during the 8 PM hour (8:00-8:59)
-        if current_weekday == 2 and current_hour == 20:
-            try:
-                check_and_send_new_champions()
-            except Exception as e:
-                print(f"Error in scheduled champion check: {e}")
-    # ================== END: Check and send champions ==================
+    # Note: Telegram sending is now handled by background scheduler (APScheduler)
+    # Scheduled to run every Wednesday at 8:00 PM automatically
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
@@ -5707,6 +6005,93 @@ def toggle_mute(student_id):
         flash('الطالب غير موجود.', 'danger')
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/send_champions_telegram', methods=['POST'])
+def send_champions_telegram_manual():
+    """إرسال تقرير أبطال الأسبوع إلى تيليجرام يدوياً (للمسؤول فقط)"""
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "error": "غير مصرح"}), 403
+    
+    try:
+        logging.info("Manual send champions report triggered by admin")
+        send_week_champions_to_telegram()
+        return jsonify({"status": "success", "message": "تم إرسال تقرير الأبطال إلى تيليجرام بنجاح"})
+    except Exception as e:
+        logging.error(f"Error in manual send champions: {e}", exc_info=True)
+        return jsonify({"status": "error", "error": f"حدث خطأ أثناء الإرسال: {str(e)}"}), 500
+
+@app.route('/admin/delete_student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    """حذف حساب طالب مع جميع البيانات المرتبطة"""
+    if session.get('role') != 'admin':
+        return jsonify({"status": "error", "error": "غير مصرح"}), 403
+    
+    db = get_db()
+    
+    # التحقق من وجود الطالب
+    student = db.execute('SELECT id, username, profile_image FROM users WHERE id = ? AND role = ?', (student_id, 'student')).fetchone()
+    if not student:
+        return jsonify({"status": "error", "error": "الطالب غير موجود"}), 404
+    
+    try:
+        # 1. حذف جميع الفيديوهات المرتبطة بالطالب (مع ملفاتها)
+        videos = db.execute('SELECT id, filepath FROM videos WHERE user_id = ?', (student_id,)).fetchall()
+        for video in videos:
+            # حذف التعليقات المرتبطة بالفيديو
+            db.execute('DELETE FROM comments WHERE video_id = ?', (video['id'],))
+            # حذف الإعجابات المرتبطة بالفيديو
+            db.execute('DELETE FROM video_likes WHERE video_id = ?', (video['id'],))
+            # حذف التقييمات المرتبطة بالفيديو
+            db.execute('DELETE FROM dynamic_video_ratings WHERE video_id = ?', (video['id'],))
+            # حذف ملف الفيديو
+            if video['filepath']:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], video['filepath'])
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        print(f"Error deleting video file {video['filepath']}: {e}")
+        
+        # حذف الفيديوهات من قاعدة البيانات
+        db.execute('DELETE FROM videos WHERE user_id = ?', (student_id,))
+        
+        # 2. حذف التعليقات التي كتبها الطالب (في فيديوهات أخرى)
+        db.execute('DELETE FROM comments WHERE user_id = ?', (student_id,))
+        
+        # 3. حذف الإعجابات التي أعجب بها الطالب
+        db.execute('DELETE FROM video_likes WHERE user_id = ?', (student_id,))
+        
+        # 4. حذف الرسائل المرتبطة بالطالب
+        db.execute('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?', (student_id, student_id))
+        
+        # 5. حذف الإيقافات
+        db.execute('DELETE FROM suspensions WHERE user_id = ?', (student_id,))
+        
+        # 6. حذف ربط الأجهزة
+        db.execute('DELETE FROM device_bindings WHERE user_id = ?', (student_id,))
+        
+        # 7. حذف المنشورات (إن وجدت)
+        db.execute('DELETE FROM posts WHERE user_id = ?', (student_id,))
+        
+        # 8. حذف صورة الملف الشخصي (إن لم تكن الصورة الافتراضية)
+        if student['profile_image'] and student['profile_image'] != 'default.png':
+            try:
+                profile_image_path = os.path.join(app.config['UPLOAD_FOLDER'], student['profile_image'])
+                if os.path.exists(profile_image_path):
+                    os.remove(profile_image_path)
+            except Exception as e:
+                print(f"Error deleting profile image {student['profile_image']}: {e}")
+        
+        # 9. حذف حساب الطالب نفسه
+        db.execute('DELETE FROM users WHERE id = ?', (student_id,))
+        
+        db.commit()
+        return jsonify({"status": "success", "message": "تم حذف حساب الطالب بنجاح"})
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting student: {e}")
+        return jsonify({"status": "error", "error": f"حدث خطأ أثناء حذف الحساب: {str(e)}"}), 500
+
 # ================== START: MODIFIED start_new_year ==================
 @app.route('/admin/start_new_year', methods=['POST'])
 def start_new_year():
@@ -5983,6 +6368,26 @@ def run_waitress_server():
         send_bytes=8192
     )
 
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Initialize scheduler for background tasks
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.start()
+
+# Schedule weekly champions report to Telegram every Wednesday at 8 PM
+scheduler.add_job(
+    scheduled_send_champions,
+    trigger=CronTrigger(day_of_week='wed', hour=20, minute=0),
+    id='weekly_champions_telegram',
+    name='Send weekly champions to Telegram',
+    replace_existing=True
+)
+logging.info("Scheduled task configured: Send champions to Telegram every Wednesday at 8:00 PM")
 
 init_db()
 if __name__ == '__main__':
