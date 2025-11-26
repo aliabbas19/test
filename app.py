@@ -1927,7 +1927,6 @@ function deleteStudent(studentId, studentName) {
     });
 }
 
-<<<<<<< HEAD
 function sendChampionsReport() {
     const statusDiv = document.getElementById('telegramSendStatus');
     const button = event.target.closest('button');
@@ -6016,11 +6015,36 @@ def send_champions_telegram_manual():
     
     try:
         logging.info("Manual send champions report triggered by admin")
+        
+        # Check if Telegram settings are configured
+        settings = get_telegram_settings()
+        if not settings:
+            return jsonify({
+                "status": "error", 
+                "error": "إعدادات تيليجرام غير موجودة. يرجى إعداد bot_token و chat_id أولاً."
+            }), 400
+        
+        # Send the report
         send_week_champions_to_telegram()
-        return jsonify({"status": "success", "message": "تم إرسال تقرير الأبطال إلى تيليجرام بنجاح"})
+        
+        # Check if there were champions to send
+        champions = get_week_champions()
+        if not champions:
+            return jsonify({
+                "status": "success", 
+                "message": "لا يوجد أبطال هذا الأسبوع لإرسالهم"
+            })
+        
+        return jsonify({
+            "status": "success", 
+            "message": "تم إرسال تقرير الأبطال إلى تيليجرام بنجاح"
+        })
     except Exception as e:
         logging.error(f"Error in manual send champions: {e}", exc_info=True)
-        return jsonify({"status": "error", "error": f"حدث خطأ أثناء الإرسال: {str(e)}"}), 500
+        return jsonify({
+            "status": "error", 
+            "error": f"حدث خطأ أثناء الإرسال: {str(e)}"
+        }), 500
 
 @app.route('/admin/delete_student/<int:student_id>', methods=['POST'])
 def delete_student(student_id):
