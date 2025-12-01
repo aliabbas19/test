@@ -18,7 +18,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g, jsonify, send_from_directory, abort, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, date
 from threading import Lock
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -39,6 +39,10 @@ base_html = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>منصة الاستاذ بسام الجنابي</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
@@ -57,6 +61,15 @@ base_html = """
             position: relative;
             z-index: 0;
             /* END: Animated Background */
+        }
+        @media (prefers-reduced-motion: reduce) {
+            body {
+                background-attachment: scroll;
+                animation: none !important;
+            }
+        }
+        img, video {
+            content-visibility: auto;
         }
 
         /* The dark overlay has been REMOVED for the light theme */
@@ -840,7 +853,20 @@ base_html = """
         شركة عراق تك- IraQ TecH للحلول البرمجية
         </label>
     </footer>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('img:not([loading])').forEach(function(img) {
+                img.setAttribute('loading', 'lazy');
+                img.setAttribute('decoding', 'async');
+            });
+            document.querySelectorAll('video').forEach(function(video) {
+                if (!video.hasAttribute('preload')) {
+                    video.setAttribute('preload', 'metadata');
+                }
+            });
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
@@ -3430,6 +3456,56 @@ content_blocks = {
     'video_review': video_review_content_block,
     'admin_criteria': admin_criteria_content_block # <--- السطر الجديد المضاف
 }
+
+class RequestMetrics:
+    """Lightweight in-memory tracker for recent request latencies."""
+    def __init__(self, window_size=500):
+        self.window_size = max(50, window_size)
+        self._records = deque(maxlen=self.window_size)
+        self._lock = Lock()
+        self._total = 0
+
+    def add(self, endpoint, duration_ms, status_code):
+        now = time.time()
+        with self._lock:
+            self._records.append({
+                'endpoint': endpoint,
+                'duration_ms': duration_ms,
+                'status': status_code,
+                'ts': now
+            })
+            self._total += 1
+
+    def snapshot(self):
+        with self._lock:
+            records = list(self._records)
+            total = self._total
+        if not records:
+            return {
+                'total_requests': total,
+                'recent_count': 0,
+                'avg_duration_ms': 0,
+                'p95_duration_ms': 0,
+                'slow_requests': 0
+            }
+
+        durations = sorted(r['duration_ms'] for r in records)
+        avg_duration = sum(durations) / len(durations)
+        idx_95 = max(0, int(len(durations) * 0.95) - 1)
+        p95 = durations[idx_95]
+        slow_threshold = float(os.getenv('SLOW_REQUEST_THRESHOLD_MS', '800'))
+        slow_requests = sum(1 for d in durations if d >= slow_threshold)
+
+        return {
+            'total_requests': total,
+            'recent_count': len(records),
+            'avg_duration_ms': round(avg_duration, 2),
+            'p95_duration_ms': round(p95, 2),
+            'slow_requests': slow_requests,
+            'window_size': self.window_size
+        }
+
+
 def render_page(template_name, **context):
     """Helper function to render pages by injecting content into the base template."""
     content_block = content_blocks.get(template_name, '')
@@ -3449,6 +3525,7 @@ PERSISTENT_DATA_PATH = '/data'
 app.config['SECRET_KEY'] = 'a_very_secret_key_that_should_be_changed'
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_UPLOAD_SIZE_MB', '200')) * 1024 * 1024
 app.config['JSON_SORT_KEYS'] = False
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = int(os.getenv('STATIC_MAX_AGE_SECONDS', '86400'))
 
 WAITRESS_LISTEN = os.getenv('WAITRESS_LISTEN', '0.0.0.0:10000')
 WAITRESS_THREADS = int(os.getenv('WAITRESS_THREADS', '8'))
@@ -3456,6 +3533,10 @@ WAITRESS_CONNECTION_LIMIT = int(os.getenv('WAITRESS_CONNECTION_LIMIT', '100'))
 WAITRESS_CHANNEL_TIMEOUT = int(os.getenv('WAITRESS_CHANNEL_TIMEOUT', '60'))
 WAITRESS_BACKLOG = int(os.getenv('WAITRESS_BACKLOG', '128'))
 WAITRESS_LOOP_TIMEOUT = float(os.getenv('WAITRESS_LOOP_TIMEOUT', '1'))
+REQUEST_METRICS_WINDOW = int(os.getenv('REQUEST_METRICS_WINDOW', '500'))
+request_metrics = RequestMetrics(window_size=REQUEST_METRICS_WINDOW)
+SLOW_REQUEST_THRESHOLD_MS = float(os.getenv('SLOW_REQUEST_THRESHOLD_MS', '800'))
+UPLOAD_CACHE_SECONDS = int(os.getenv('UPLOAD_CACHE_SECONDS', '604800'))
 
 # --- DYNAMICALLY SET UPLOAD FOLDER PATH ---
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -3719,6 +3800,50 @@ _CRITERIA_CACHE_LOCK = Lock()
 _CRITERIA_CACHE = {"expires": 0, "value": None}
 CRITERIA_CACHE_TTL = int(os.getenv('CRITERIA_CACHE_TTL', '60'))
 
+
+class TTLCache:
+    """Thread-safe TTL cache for lightweight DB read caching."""
+    def __init__(self, ttl_seconds=10, max_entries=128):
+        self.ttl = ttl_seconds
+        self.max_entries = max_entries
+        self._data = {}
+        self._lock = Lock()
+
+    def get(self, key):
+        now = time.time()
+        with self._lock:
+            payload = self._data.get(key)
+            if not payload:
+                return None
+            value, expires = payload
+            if expires < now:
+                self._data.pop(key, None)
+                return None
+            return value
+
+    def set(self, key, value):
+        expires = time.time() + self.ttl
+        with self._lock:
+            if len(self._data) >= self.max_entries:
+                # Remove oldest entry
+                oldest_key = next(iter(self._data))
+                self._data.pop(oldest_key, None)
+            self._data[key] = (value, expires)
+
+    def delete(self, key):
+        with self._lock:
+            self._data.pop(key, None)
+
+    def clear(self):
+        with self._lock:
+            self._data.clear()
+
+
+UNREAD_CACHE_TTL = int(os.getenv('UNREAD_CACHE_TTL', '15'))
+UNAPPROVED_CACHE_TTL = int(os.getenv('UNAPPROVED_CACHE_TTL', '10'))
+_UNREAD_CACHE = TTLCache(ttl_seconds=UNREAD_CACHE_TTL, max_entries=2048)
+_UNAPPROVED_CACHE = TTLCache(ttl_seconds=UNAPPROVED_CACHE_TTL, max_entries=16)
+
 def safe_row_value(row, key, default=None):
     """Safely read a value from sqlite3.Row or dict without using .get()."""
     if row is None:
@@ -3750,6 +3875,60 @@ def resolve_upload_path(filename):
     if not destination.startswith(upload_dir):
         raise ValueError('تم رفض المسار المطلوب.')
     return destination
+
+
+def get_unread_count_cached(user_id):
+    """Return unread messages for student users with a short-lived cache."""
+    if not user_id:
+        return 0
+    cache_key = str(user_id)
+    cached_value = _UNREAD_CACHE.get(cache_key)
+    if cached_value is not None:
+        return cached_value
+    db = get_db()
+    count = db.execute(
+        'SELECT COUNT(id) FROM messages WHERE receiver_id = ? AND is_read = 0',
+        (user_id,)
+    ).fetchone()[0]
+    _UNREAD_CACHE.set(cache_key, count)
+    return count
+
+
+def invalidate_unread_cache(user_id=None):
+    """Invalidate unread counter cache for a user or everyone."""
+    if user_id is None:
+        _UNREAD_CACHE.clear()
+        return
+    _UNREAD_CACHE.delete(str(user_id))
+
+
+def get_unapproved_video_count():
+    """Cached count of videos waiting for approval."""
+    cache_key = 'unapproved_videos'
+    cached_value = _UNAPPROVED_CACHE.get(cache_key)
+    if cached_value is not None:
+        return cached_value
+    db = get_db()
+    count = db.execute(
+        'SELECT COUNT(id) FROM videos WHERE is_approved = 0'
+    ).fetchone()[0]
+    _UNAPPROVED_CACHE.set(cache_key, count)
+    return count
+
+
+def invalidate_unapproved_cache():
+    """Clear cached approval queue count."""
+    _UNAPPROVED_CACHE.delete('unapproved_videos')
+
+
+def apply_upload_caching(response):
+    """Attach long-lived cache headers for uploaded media responses."""
+    if response is None:
+        return None
+    response.headers.setdefault('Cache-Control', f'public, max-age={UPLOAD_CACHE_SECONDS}')
+    expires = datetime.utcnow() + timedelta(seconds=UPLOAD_CACHE_SECONDS)
+    response.headers.setdefault('Expires', expires.strftime('%a, %d %b %Y %H:%M:%S GMT'))
+    return response
 
 def load_all_criteria(force_refresh=False):
     """Cache rating criteria to reduce repetitive reads under load."""
@@ -4419,6 +4598,31 @@ def format_datetime(value, format='%Y-%m-%d %H:%M'):
 
 app.jinja_env.filters['strftime'] = format_datetime
 
+
+@app.before_request
+def capture_request_timer():
+    """Store request start time for lightweight APM metrics."""
+    g._request_start_time = time.perf_counter()
+    g._request_endpoint = request.endpoint or request.path
+
+
+@app.after_request
+def record_request_metrics(response):
+    start_time = getattr(g, '_request_start_time', None)
+    if start_time is not None:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        endpoint = getattr(g, '_request_endpoint', request.endpoint or request.path)
+        request_metrics.add(endpoint, duration_ms, response.status_code)
+        if duration_ms >= SLOW_REQUEST_THRESHOLD_MS:
+            app.logger.warning(
+                "Slow request detected: %s took %.1f ms (status %s)",
+                endpoint,
+                duration_ms,
+                response.status_code
+            )
+    return response
+
+
 @app.before_request
 def before_request_handler():
     # Allow auto-login endpoint without session check
@@ -4456,22 +4660,15 @@ def before_request_handler():
                 flash('سنة دراسية جديدة! الرجاء تحديث الصف والشعبة للمتابعة.', 'info')
                 return redirect(url_for('edit_user', user_id=session['user_id']))
 
-    # Unread message count for students
+    # Unread message count for students (cached)
     g.unread_count = 0
     if session.get('role') == 'student':
-        count = db.execute(
-            'SELECT COUNT(id) FROM messages WHERE receiver_id = ? AND is_read = 0',
-            (session['user_id'],)
-        ).fetchone()[0]
-        g.unread_count = count
+        g.unread_count = get_unread_count_cached(session['user_id'])
 
-    # --- START: NEW CODE FOR VIDEO REVIEW COUNT ---
+    # --- START: NEW CODE FOR VIDEO REVIEW COUNT (cached) ---
     g.unapproved_count = 0
     if session.get('role') == 'admin':
-        count = db.execute(
-            'SELECT COUNT(id) FROM videos WHERE is_approved = 0'
-        ).fetchone()[0]
-        g.unapproved_count = count
+        g.unapproved_count = get_unapproved_video_count()
     # --- END: NEW CODE ---
     
     # ================== NEW: Load all criteria into g ==================
@@ -4482,6 +4679,14 @@ def before_request_handler():
     
     # Note: Telegram sending is now handled by background scheduler (APScheduler)
     # Scheduled to run every Wednesday at 8:00 PM automatically
+
+
+@app.route('/ops/metrics')
+def ops_metrics():
+    """Return recent performance metrics (admin only)."""
+    if session.get('role') != 'admin':
+        abort(403)
+    return jsonify(request_metrics.snapshot())
 
 
 # ----------------- AUTHENTICATION ROUTES -----------------
@@ -5425,6 +5630,8 @@ def upload_video():
         db.execute('INSERT INTO videos (title, filepath, user_id, video_type, is_approved) VALUES (?, ?, ?, ?, ?)',
                    (title, final_filename, session['user_id'], video_type, is_approved))
         db.commit()
+        if is_approved == 0:
+            invalidate_unapproved_cache()
 
         if is_approved == 0:
             flash(f'تم رفع الفيديو بنجاح (مدته {int(duration)} ثانية)، وهو الآن بانتظار موافقة المدير.', 'success')
@@ -5526,6 +5733,7 @@ def approve_video(video_id):
     db = get_db()
     db.execute('UPDATE videos SET is_approved = 1 WHERE id = ?', (video_id,))
     db.commit()
+    invalidate_unapproved_cache()
     flash('تمت الموافقة على الفيديو بنجاح!', 'success')
     return redirect(request.referrer or url_for('index'))
 
@@ -5538,7 +5746,7 @@ def delete_video(video_id):
 
     db = get_db()
     # ابحث عن الفيديو أولاً لجلب اسم الملف ومعلومات المستخدم
-    video = db.execute('SELECT filepath, user_id FROM videos WHERE id = ?', (video_id,)).fetchone()
+    video = db.execute('SELECT filepath, user_id, is_approved FROM videos WHERE id = ?', (video_id,)).fetchone()
 
     if not video:
         flash('الفيديو غير موجود.', 'danger')
@@ -5564,6 +5772,8 @@ def delete_video(video_id):
         db.execute('DELETE FROM videos WHERE id = ?', (video_id,))
 
         db.commit()
+        if safe_row_value(video, 'is_approved') == 0:
+            invalidate_unapproved_cache()
         flash('تم حذف الفيديو وجميع البيانات المتعلقة به بنجاح.', 'success')
 
     except Exception as e:
@@ -6165,6 +6375,8 @@ def start_new_year():
         db.execute('DELETE FROM star_bank')
         db.execute('DELETE FROM suspensions')
         db.execute('DELETE FROM messages')
+        invalidate_unread_cache()
+        invalidate_unapproved_cache()
         
 
 
@@ -6211,6 +6423,7 @@ def my_messages():
     # Mark messages from admin as read
     db.execute('UPDATE messages SET is_read = 1 WHERE receiver_id = ? AND sender_id = ?', (session['user_id'], admin['id']))
     db.commit()
+    invalidate_unread_cache(session['user_id'])
 
     return render_page('student_chat', admin_id=admin['id'], scripts_block=student_chat_script_block)
 
@@ -6273,6 +6486,8 @@ def api_send_admin_message():
 
     db = get_db()
 
+    affected_receivers = set()
+
     if msg_type == 'user':
         receiver_id = data.get('id')
         if not receiver_id:
@@ -6281,6 +6496,7 @@ def api_send_admin_message():
             "INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)",
             (sender_id, receiver_id, content)
         )
+        affected_receivers.add(receiver_id)
     elif msg_type == 'group':
         class_name = data.get('class_name')
         section_name = data.get('section_name')
@@ -6300,10 +6516,13 @@ def api_send_admin_message():
                 "INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)",
                 (sender_id, student['id'], content)
             )
+            affected_receivers.add(student['id'])
     else:
         return jsonify({"status": "error", "message": "Invalid message type."}), 400
 
     db.commit()
+    for receiver_id in affected_receivers:
+        invalidate_unread_cache(receiver_id)
     return jsonify({"status": "success", "message": "Message sent."})
 
 @app.route('/api/student/messages')
@@ -6345,6 +6564,7 @@ def api_send_student_message():
         (sender_id, receiver_id, content)
     )
     db.commit()
+    invalidate_unread_cache(receiver_id)
     return jsonify({"status": "success"})
 
 # --- تعديل 2: إضافة مسار خدمة الملفات الجديد ---
@@ -6360,12 +6580,12 @@ def uploaded_file(filename):
         if not os.path.exists(safe_path):
              default_image_path = os.path.join(app.config['UPLOAD_FOLDER'], 'default.png')
              if os.path.exists(default_image_path):
-                 return send_from_directory(app.config['UPLOAD_FOLDER'], 'default.png')
+                 return apply_upload_caching(send_from_directory(app.config['UPLOAD_FOLDER'], 'default.png'))
              else:
                   abort(404) # Return 404 if even default is missing
 
         # Serve the requested file
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        return apply_upload_caching(send_from_directory(app.config['UPLOAD_FOLDER'], filename))
     except FileNotFoundError:
          abort(404)
     except Exception as e:
