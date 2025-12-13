@@ -91,6 +91,16 @@ const Profile = () => {
   return (
     <div>
       <div>
+        {/* Cover Image */}
+        <div className="relative h-48 md:h-64 -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-2xl">
+          <img
+            src="https://i.ibb.co/RkWC7YZm/photo-2025-10-22-12-53-24.jpg"
+            alt="غلاف"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-base-100/80 to-transparent"></div>
+        </div>
+
         <div className="glass-effect p-8 rounded-2xl max-w-4xl mx-auto animate-fade-in relative overflow-hidden">
           {/* Decorative background element */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>

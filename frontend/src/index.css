@@ -7,8 +7,20 @@
     direction: rtl;
   }
 
+  /* Fix input text visibility on dark themes */
+  input,
+  textarea,
+  select {
+    color: inherit !important;
+  }
+
+  .input {
+    color: currentColor;
+  }
+
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
     color: #212529;
     background-image: url('https://i.pinimg.com/originals/ca/2c/31/ca2c31828e83a45a332a9a463b21b7cc.gif');
     background-size: cover;

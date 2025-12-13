@@ -1,3 +1,7 @@
+// Default profile image - using reliable UI Avatars API
+const DEFAULT_PROFILE_IMAGE = "https://ui-avatars.com/api/?name=User&background=6366f1&color=fff&size=200"
+
+
 const ProfileImage = ({ src, alt = 'Profile', size = 'md' }) => {
   const sizeClasses = {
     sm: 'w-8 h-8',
@@ -6,14 +10,22 @@ const ProfileImage = ({ src, alt = 'Profile', size = 'md' }) => {
     xl: 'w-32 h-32'
   }
 
+  // Use default image if src is empty, null, 'default.png', or fails to load
+  const imageSrc = (!src || src === 'default.png' || src.endsWith('/default.png'))
+    ? DEFAULT_PROFILE_IMAGE
+    : src
+
   return (
     <div className={`avatar ${sizeClasses[size]}`}>
       <div className="rounded-full">
-        <img src={src || '/default.png'} alt={alt} />
+        <img
+          src={imageSrc}
+          alt={alt}
+          onError={(e) => { e.target.src = DEFAULT_PROFILE_IMAGE }}
+        />
       </div>
     </div>
   )
 }
 
 export default ProfileImage
-

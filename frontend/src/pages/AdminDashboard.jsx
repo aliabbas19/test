@@ -3,6 +3,8 @@ import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import StudentManagement from '../components/admin/StudentManagement'
 import CriteriaManagement from '../components/admin/CriteriaManagement'
+import TelegramSettings from '../components/admin/TelegramSettings'
+
 
 const AdminDashboard = () => {
   const { isAdmin } = useAuth()
@@ -133,26 +135,8 @@ const AdminDashboard = () => {
         {/* Removed Students tab rendering here */}
         {activeTab === 'criteria' && <div className="animate-fade-in"><CriteriaManagement /></div>}
 
-        {activeTab === 'telegram' && (
-          <div className="animate-fade-in max-w-2xl mx-auto text-center">
-            <i className="fa-brands fa-telegram text-6xl text-blue-500 mb-4"></i>
-            <h2 className="text-2xl font-bold mb-4">إرسال القائمة الذهبية</h2>
-            <p className="mb-6 text-gray-600">نشر قائمة الطلاب المتميزين (الأبطال) لهذا الأسبوع إلى قناة التيليجرام.</p>
-            <button
-              className="btn btn-primary btn-lg shadow-xl shadow-blue-500/30"
-              onClick={async () => {
-                try {
-                  const response = await api.post('/api/admin/telegram/send-champions')
-                  alert(response.data.message || 'تم الإرسال بنجاح')
-                } catch (error) {
-                  alert(error.response?.data?.detail || 'حدث خطأ أثناء الإرسال')
-                }
-              }}
-            >
-              <i className="fa-solid fa-paper-plane ml-2"></i> إرسال الآن
-            </button>
-          </div>
-        )}
+        {activeTab === 'telegram' && <TelegramSettings />}
+
 
         {activeTab === 'metrics' && metrics && (
           <div className="animate-fade-in grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

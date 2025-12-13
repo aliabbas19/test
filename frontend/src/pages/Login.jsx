@@ -29,8 +29,9 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-base-200">
       <div className="card w-96 bg-base-100 shadow-xl">
         <div className="card-body">
-          <h2 className="card-title justify-center text-2xl mb-4">تسجيل الدخول</h2>
-          
+          <h2 className="card-title justify-center text-2xl mb-4 text-white">تسجيل الدخول</h2>
+
+
           {error && (
             <div className="alert alert-error">
               <span>{error}</span>
@@ -40,11 +41,11 @@ const Login = () => {
           <form onSubmit={handleSubmit}>
             <div className="form-control mb-4">
               <label className="label">
-                <span className="label-text">اسم المستخدم</span>
+                <span className="label-text text-white">اسم المستخدم</span>
               </label>
               <input
                 type="text"
-                className="input input-bordered"
+                className="input input-bordered bg-slate-800 text-white placeholder:text-gray-400"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -53,16 +54,18 @@ const Login = () => {
 
             <div className="form-control mb-4">
               <label className="label">
-                <span className="label-text">كلمة المرور</span>
+                <span className="label-text text-white">كلمة المرور</span>
               </label>
               <input
                 type="password"
-                className="input input-bordered"
+                className="input input-bordered bg-slate-800 text-white placeholder:text-gray-400"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
+
+
 
             <button
               type="submit"
