@@ -14,38 +14,16 @@ echo "============================================"
 # Create required directories
 mkdir -p certbot/www certbot/conf
 
-# Create a temporary nginx config for initial certificate request
-cat > nginx/nginx-init.conf << 'EOF'
-events {
-    worker_connections 1024;
-}
-
-http {
-    server {
-        listen 80;
-        server_name basamaljanaby.com www.basamaljanaby.com;
-
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-
-        location / {
-            return 200 'SSL setup in progress...';
-            add_header Content-Type text/plain;
-        }
-    }
-}
-EOF
-
 echo "1. Starting temporary nginx for certificate verification..."
 
-# Start nginx with temporary config (no SSL yet)
-docker compose -f docker-compose.prod.yml run -d --rm \
-    -v $(pwd)/nginx/nginx-init.conf:/etc/nginx/nginx.conf:ro \
-    -v $(pwd)/certbot/www:/var/www/certbot:ro \
+# Run a simple nginx container for ACME challenge
+sudo docker run -d --rm \
+    --name nginx-certbot-init \
     -p 80:80 \
-    --name nginx-init \
-    nginx:alpine
+    -v $(pwd)/certbot/www:/var/www/certbot \
+    nginx:alpine \
+    sh -c "mkdir -p /var/www/certbot/.well-known/acme-challenge && nginx -g 'daemon off;' &
+    echo 'server { listen 80; location /.well-known/acme-challenge/ { root /var/www/certbot; } location / { return 200 \"SSL setup...\"; } }' > /etc/nginx/conf.d/default.conf && nginx -s reload && sleep infinity"
 
 # Wait for nginx to start
 sleep 5
@@ -53,7 +31,7 @@ sleep 5
 echo "2. Requesting SSL certificate from Let's Encrypt..."
 
 # Request certificate
-docker run --rm \
+sudo docker run --rm \
     -v $(pwd)/certbot/www:/var/www/certbot \
     -v $(pwd)/certbot/conf:/etc/letsencrypt \
     certbot/certbot certonly \
@@ -67,14 +45,11 @@ docker run --rm \
     --force-renewal
 
 echo "3. Stopping temporary nginx..."
-docker stop nginx-init 2>/dev/null || true
-
-echo "4. Cleaning up temporary config..."
-rm -f nginx/nginx-init.conf
+sudo docker stop nginx-certbot-init 2>/dev/null || true
 
 echo "============================================"
 echo "SSL Certificate obtained successfully!"
 echo "============================================"
 echo ""
-echo "Now run: docker compose -f docker-compose.prod.yml up -d --build"
+echo "Now run: sudo docker compose -f docker-compose.prod.yml up -d --build"
 echo ""
