@@ -1,9 +1,36 @@
 services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-ssl.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    healthcheck:
+      test: [ "CMD", "nginx", "-t" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: always
+
   postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: basamaljanaby
-      POSTGRES_PASSWORD: changeme
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: basamaljanaby
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -18,13 +45,13 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/static:/app/static
     environment:
-      DATABASE_URL: postgresql://basamaljanaby:changeme@postgres:5432/basamaljanaby
-      SECRET_KEY: production-secret-key-change-this
+      DATABASE_URL: postgresql://basamaljanaby:${POSTGRES_PASSWORD:-changeme}@postgres:5432/basamaljanaby
+      SECRET_KEY: ${SECRET_KEY:-production-secret-key-change-this}
       DEBUG: "false"
       AWS_REGION: me-south-1
       S3_BUCKET_NAME: basamaljanaby-media
@@ -32,16 +59,25 @@ services:
       postgres:
         condition: service_healthy
     restart: always
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
       - backend
     restart: always
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:80" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
