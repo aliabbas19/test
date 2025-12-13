@@ -1,0 +1,47 @@
+# Production Docker Compose for AWS Lightsail
+# Run: docker-compose -f docker-compose.lightsail.yml up -d
+
+services:
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=false
+      - BACKEND_URL=https://api.basamaljanaby.com
+      - AWS_REGION=me-south-1
+      - S3_BUCKET_NAME=basamaljanaby-media
+    volumes:
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+      - frontend
