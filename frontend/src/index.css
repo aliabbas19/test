@@ -11,11 +11,19 @@
   input,
   textarea,
   select {
-    color: inherit !important;
+    color: white !important;
   }
 
-  .input {
-    color: currentColor;
+  .input,
+  .textarea,
+  .select {
+    color: white !important;
+    background-color: rgba(30, 41, 59, 0.8) !important;
+  }
+
+  .input::placeholder,
+  .textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
   }
 
   body {
