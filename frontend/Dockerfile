@@ -13,6 +13,9 @@ RUN npm cache clean --force && \
 # Copy source code
 COPY . .
 
+# Set API URL for production (empty = same origin)
+ENV VITE_API_URL=""
+
 # Build application
 RUN npm run build
 
