@@ -59,6 +59,7 @@ services:
       DATABASE_URL: postgresql://basamaljanaby:${POSTGRES_PASSWORD:-changeme}@postgres:5432/basamaljanaby
       SECRET_KEY: ${SECRET_KEY:-production-secret-key-change-this}
       DEBUG: "false"
+      BACKEND_URL: "https://basamaljanaby.com"
       AWS_REGION: me-south-1
       S3_BUCKET_NAME: basamaljanaby-media
       PYTHONUNBUFFERED: "1"
