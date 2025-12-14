@@ -7,56 +7,63 @@
     direction: rtl;
   }
 
-  /* Fix input text visibility on dark themes */
+  /* Input styling for light theme */
   input,
   textarea,
   select {
-    color: white !important;
+    color: #1f2937 !important;
   }
 
   .input,
   .textarea,
   .select {
-    color: white !important;
-    background-color: rgba(30, 41, 59, 0.8) !important;
+    color: #1f2937 !important;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(13, 110, 253, 0.3) !important;
   }
 
   .input::placeholder,
   .textarea::placeholder {
-    color: rgba(255, 255, 255, 0.5) !important;
+    color: rgba(107, 114, 128, 0.8) !important;
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
   }
 
   body {
     font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
     color: #212529;
-    background-image: url('https://i.pinimg.com/originals/ca/2c/31/ca2c31828e83a45a332a9a463b21b7cc.gif');
-    background-size: cover;
-    background-position: center;
+    /* Light gradient background */
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 50%, #f0f4f8 100%);
     background-attachment: fixed;
+    min-height: 100vh;
     position: relative;
     z-index: 0;
     overflow-x: hidden;
   }
 
-  /* Scrollbar Styling */
+  /* Scrollbar Styling for light theme */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.05);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(13, 110, 253, 0.5);
+    background: rgba(13, 110, 253, 0.4);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(13, 110, 253, 0.7);
+    background: rgba(13, 110, 253, 0.6);
   }
 }
 
