@@ -132,7 +132,7 @@ app.add_middleware(
 if not settings.DEBUG:
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["basamaljanaby.com", "*.basamaljanaby.com"]
+        allowed_hosts=["basamaljanaby.com", "*.basamaljanaby.com", "localhost", "127.0.0.1"]
     )
 
 # Rate limiting middleware
