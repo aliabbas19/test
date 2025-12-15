@@ -28,6 +28,7 @@ class Video(VideoBase):
     timestamp: datetime
     is_approved: bool
     is_archived: bool
+    file_url: Optional[str] = None
     
     class Config:
         from_attributes = True
