@@ -37,9 +37,8 @@
   body {
     font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #212529;
-    /* Light gradient background */
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 50%, #f0f4f8 100%);
-    background-attachment: fixed;
+    /* Pure white background */
+    background: #f8fafc;
     min-height: 100vh;
     position: relative;
     z-index: 0;

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import VideoPlayer from './VideoPlayer'
+import CommentSection from '../comments/CommentSection'
 
-const VideoCard = ({ video, onSelect }) => {
+const VideoCard = ({ video, onApprove }) => {
   const { isAdmin } = useAuth()
   const [likesCount, setLikesCount] = useState(0)
   const [userLikes, setUserLikes] = useState(false)
@@ -32,51 +33,61 @@ const VideoCard = ({ video, onSelect }) => {
     }
   }
 
+  const handleApprove = async () => {
+    try {
+      await api.post(`/api/videos/${video.id}/approve`)
+      if (onApprove) onApprove()
+    } catch (error) {
+      console.error('Failed to approve video:', error)
+    }
+  }
+
   return (
-    <div className="glass-effect rounded-xl overflow-hidden mb-6 p-1">
-      <div className="p-4 border-b border-gray-100/50 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">{video.title}</h2>
-        <span className={`badge ${video.video_type === 'اثرائي' ? 'badge-warning' : 'badge-info'}`}>
+    <div className="bg-white rounded-xl overflow-hidden mb-6 shadow-md border border-gray-100">
+      {/* Video Header */}
+      <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <h2 className="text-lg font-bold text-gray-800">{video.title}</h2>
+        <span className={`badge ${video.video_type === 'اثرائي' ? 'badge-warning' : 'badge-info'} text-white`}>
           {video.video_type}
         </span>
       </div>
 
-      <div className="bg-black/5 p-1 video-container">
+      {/* Video Player */}
+      <div className="bg-black">
         <VideoPlayer src={video.file_url} title={video.title} />
       </div>
 
-      <div className="p-4 flex justify-between items-center bg-white/50">
+      {/* Actions Bar */}
+      <div className="p-3 flex justify-between items-center bg-white border-b border-gray-100">
         <button
           onClick={handleLike}
-          className={`btn btn-sm gap-2 ${userLikes ? 'btn-error text-white shadow-lg shadow-red-500/30' : 'btn-ghost text-gray-500 hover:text-red-500 hover:bg-red-50'}`}
+          className={`btn btn-sm gap-2 ${userLikes
+            ? 'btn-error text-white shadow-sm'
+            : 'btn-ghost text-gray-500 hover:text-red-500 hover:bg-red-50'}`}
         >
           <i className={`${userLikes ? 'fa-solid' : 'fa-regular'} fa-heart text-lg`}></i>
           <span className="font-bold">{likesCount}</span>
         </button>
 
-        <div className="flex gap-2">
-          {isAdmin && !video.is_approved && (
-            <button
-              onClick={async () => {
-                await api.post(`/api/videos/${video.id}/approve`)
-                if (onSelect) onSelect()
-              }}
-              className="btn btn-sm btn-success text-white"
-            >
-              <i className="fa-solid fa-check mr-1"></i> موافقة
-            </button>
-          )}
+        {/* Admin Approve Button */}
+        {isAdmin && !video.is_approved && (
           <button
-            onClick={() => onSelect && onSelect(video)}
-            className="btn btn-sm btn-primary btn-outline gap-2"
+            onClick={handleApprove}
+            className="btn btn-sm btn-success text-white gap-1"
           >
-            عرض التفاصيل <i className="fa-solid fa-arrow-left"></i>
+            <i className="fa-solid fa-check"></i> موافقة
           </button>
-        </div>
+        )}
+      </div>
+
+      {/* Inline Instagram-style Comments */}
+      <div className="border-t border-gray-100 bg-white">
+        <CommentSection videoId={video.id} compact={true} />
       </div>
     </div>
   )
 }
 
 export default VideoCard
+
 
