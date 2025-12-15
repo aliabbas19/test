@@ -11,6 +11,18 @@ const StudentManagement = () => {
     search_name: ''
   })
 
+  // حالة إضافة طالب جديد
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newStudent, setNewStudent] = useState({
+    username: '',
+    password: '',
+    full_name: '',
+    class_name: '',
+    section_name: '',
+    role: 'student'
+  })
+  const [addingStudent, setAddingStudent] = useState(false)
+
   useEffect(() => {
     fetchStudents()
   }, [filters])
@@ -116,12 +128,184 @@ const StudentManagement = () => {
     }
   }
 
+  const handleAddStudent = async (e) => {
+    e.preventDefault()
+
+    if (!newStudent.username || !newStudent.password) {
+      alert('يرجى إدخال اسم المستخدم وكلمة المرور')
+      return
+    }
+
+    setAddingStudent(true)
+    try {
+      await api.post('/api/admin/users', newStudent)
+      alert('تم إضافة الطالب بنجاح')
+      setShowAddModal(false)
+      setNewStudent({
+        username: '',
+        password: '',
+        full_name: '',
+        class_name: '',
+        section_name: '',
+        role: 'student'
+      })
+      fetchStudents()
+    } catch (error) {
+      console.error('Failed to add student:', error)
+      alert(error.response?.data?.detail || 'فشل إضافة الطالب')
+    } finally {
+      setAddingStudent(false)
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-4">جاري التحميل...</div>
   }
 
   return (
     <div>
+      {/* زر إضافة طالب جديد */}
+      <div className="glass-effect p-6 rounded-xl mb-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <i className="fa-solid fa-user-plus text-primary"></i> إضافة طالب جديد
+          </h2>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary gap-2"
+          >
+            <i className="fa-solid fa-plus"></i> إضافة طالب
+          </button>
+        </div>
+      </div>
+
+      {/* Modal إضافة طالب */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="glass-effect p-6 rounded-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">
+                <i className="fa-solid fa-user-plus text-primary ml-2"></i>
+                إضافة طالب جديد
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudent} className="space-y-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">اسم المستخدم (الرمز) *</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="مثال: student123"
+                  value={newStudent.username}
+                  onChange={(e) => setNewStudent({ ...newStudent, username: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">كلمة المرور *</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="كلمة المرور"
+                  value={newStudent.password}
+                  onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">الاسم الكامل</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="اسم الطالب"
+                  value={newStudent.full_name}
+                  onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">الصف</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={newStudent.class_name}
+                    onChange={(e) => setNewStudent({ ...newStudent, class_name: e.target.value })}
+                  >
+                    <option value="">اختر الصف</option>
+                    <option value="الأول المتوسط">الأول المتوسط</option>
+                    <option value="الثاني المتوسط">الثاني المتوسط</option>
+                    <option value="الثالث المتوسط">الثالث المتوسط</option>
+                    <option value="الرابع الإعدادي">الرابع الإعدادي</option>
+                    <option value="الخامس الإعدادي">الخامس الإعدادي</option>
+                    <option value="السادس الإعدادي">السادس الإعدادي</option>
+                  </select>
+                </div>
+
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">الشعبة</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={newStudent.section_name}
+                    onChange={(e) => setNewStudent({ ...newStudent, section_name: e.target.value })}
+                  >
+                    <option value="">اختر الشعبة</option>
+                    <option value="أ">أ</option>
+                    <option value="ب">ب</option>
+                    <option value="ج">ج</option>
+                    <option value="د">د</option>
+                    <option value="هـ">هـ</option>
+                    <option value="و">و</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={addingStudent}
+                >
+                  {addingStudent ? (
+                    <span className="loading loading-spinner"></span>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-check ml-1"></i> إضافة
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-ghost"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* قسم الفلترة */}
       <div className="glass-effect p-6 rounded-xl mb-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <i className="fa-solid fa-filter text-primary"></i> فلترة الطلاب
