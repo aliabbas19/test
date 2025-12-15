@@ -109,10 +109,9 @@ def generate_presigned_url(s3_key: str, expiration: int = 3600) -> Optional[str]
             print(f"Error generating presigned URL: {e}")
             return None
     else:
-        # Local Storage: Return static file path
-        # Assuming frontend can access /data/uploads/{s3_key}
-        # Note: s3_key usually works as a relative path
-        return f"{settings.BACKEND_URL}/data/uploads/{s3_key}"
+        # Local Storage: Return relative path for nginx to proxy
+        # This will be proxied by nginx to the backend
+        return f"/data/uploads/{s3_key}"
 
 
 def get_file_url(s3_key: str, use_cloudfront: bool = True) -> Optional[str]:
@@ -123,6 +122,7 @@ def get_file_url(s3_key: str, use_cloudfront: bool = True) -> Optional[str]:
             return f"https://{settings.CLOUDFRONT_DOMAIN}/{s3_key}"
         return generate_presigned_url(s3_key)
     else:
-        # Local Storage
-        return f"{settings.BACKEND_URL}/data/uploads/{s3_key}"
+        # Local Storage: Return relative path for nginx to proxy
+        return f"/data/uploads/{s3_key}"
+
 
