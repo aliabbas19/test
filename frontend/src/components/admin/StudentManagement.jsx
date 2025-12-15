@@ -164,18 +164,32 @@ const StudentManagement = () => {
 
   return (
     <div>
-      {/* زر إضافة طالب جديد */}
-      <div className="glass-effect p-6 rounded-xl mb-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <i className="fa-solid fa-user-plus text-primary"></i> إضافة طالب جديد
+      {/* زر إضافة مستخدم جديد */}
+      <div className="glass-effect p-4 md:p-6 rounded-xl mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
+            <i className="fa-solid fa-user-plus text-primary"></i> إضافة مستخدم
           </h2>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn btn-primary gap-2"
-          >
-            <i className="fa-solid fa-plus"></i> إضافة طالب
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setNewStudent({ ...newStudent, role: 'student' })
+                setShowAddModal(true)
+              }}
+              className="btn btn-primary btn-sm md:btn-md gap-2"
+            >
+              <i className="fa-solid fa-user-graduate"></i> إضافة طالب
+            </button>
+            <button
+              onClick={() => {
+                setNewStudent({ ...newStudent, role: 'admin' })
+                setShowAddModal(true)
+              }}
+              className="btn btn-secondary btn-sm md:btn-md gap-2"
+            >
+              <i className="fa-solid fa-user-shield"></i> إضافة أدمن
+            </button>
+          </div>
         </div>
       </div>
 
@@ -185,8 +199,8 @@ const StudentManagement = () => {
           <div className="glass-effect p-6 rounded-xl w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">
-                <i className="fa-solid fa-user-plus text-primary ml-2"></i>
-                إضافة طالب جديد
+                <i className={`fa-solid ${newStudent.role === 'admin' ? 'fa-user-shield text-secondary' : 'fa-user-graduate text-primary'} ml-2`}></i>
+                إضافة {newStudent.role === 'admin' ? 'أدمن' : 'طالب'} جديد
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
