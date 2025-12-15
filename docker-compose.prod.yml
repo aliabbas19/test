@@ -54,7 +54,10 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 30
     volumes:
       - ./backend/uploads:/app/uploads
-      - ./backend/static:/app/static
+      # Ensure legacy data is preserved if needed, or stick to standard mapping
+      # Host: ./backend/uploads -> Container: /app/uploads
+      # And because app mounts /data/uploads to UPLOAD_FOLDER (uploads), correct setup is:
+      - ./data/uploads:/app/data/uploads # Map host data folder to container data folder
     environment:
       DATABASE_URL: postgresql://basamaljanaby:${POSTGRES_PASSWORD:-changeme}@postgres:5432/basamaljanaby
       SECRET_KEY: ${SECRET_KEY:-production-secret-key-change-this}
@@ -63,6 +66,9 @@ services:
       AWS_REGION: me-south-1
       S3_BUCKET_NAME: basamaljanaby-media
       PYTHONUNBUFFERED: "1"
+      # Explicitly tell backend where uploads are
+      UPLOAD_FOLDER: "/app/data/uploads"
+
     depends_on:
       postgres:
         condition: service_healthy

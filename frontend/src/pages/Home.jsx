@@ -126,41 +126,83 @@ const Home = () => {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-8">
-        <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-          <div className="form-control">
-            <label className="label"><span className="label-text font-bold text-gray-700">المرحلة</span></label>
-            <select name="class_name" className="select select-bordered w-full bg-gray-50 text-gray-800 border-gray-300" onChange={handleFilterChange}>
-              <option value="">الكل</option>
-              <option value="الأول المتوسط">الأول المتوسط</option>
-              <option value="الثاني المتوسط">الثاني المتوسط</option>
-              <option value="الثالث المتوسط">الثالث المتوسط</option>
-              <option value="الرابع الإعدادي">الرابع الإعدادي</option>
-              <option value="الخامس الإعدادي">الخامس الإعدادي</option>
-              <option value="السادس الإعدادي">السادس الإعدادي</option>
-            </select>
+        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+          <i className="fa-solid fa-filter text-primary"></i> تصفية المحتوى
+        </h3>
+
+        <div className="space-y-6">
+          {/* Class Filter */}
+          <div>
+            <label className="text-sm font-bold text-gray-500 mb-2 block">المرحلة الدراسية</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFilters({ ...filters, class_name: '' })}
+                className={`btn btn-sm ${!filters.class_name ? 'btn-primary text-white' : 'btn-ghost bg-gray-100'}`}
+              >
+                الكل
+              </button>
+              {['الأول المتوسط', 'الثاني المتوسط', 'الثالث المتوسط', 'الرابع الإعدادي', 'الخامس الإعدادي', 'السادس الإعدادي'].map(cls => (
+                <button
+                  key={cls}
+                  onClick={() => setFilters({ ...filters, class_name: cls })}
+                  className={`btn btn-sm ${filters.class_name === cls ? 'btn-primary text-white' : 'btn-ghost bg-gray-100 text-gray-600'}`}
+                >
+                  {cls}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label"><span className="label-text font-bold text-gray-700">الشعبة</span></label>
-            <select name="section_name" className="select select-bordered w-full bg-gray-50 text-gray-800 border-gray-300" onChange={handleFilterChange}>
-              <option value="">الكل</option>
-              <option value="أ">أ</option>
-              <option value="ب">ب</option>
-              <option value="ج">ج</option>
-              <option value="د">د</option>
-              <option value="هـ">هـ</option>
-              <option value="و">و</option>
-            </select>
+
+          {/* Section Filter */}
+          <div>
+            <label className="text-sm font-bold text-gray-500 mb-2 block">الشعبة</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFilters({ ...filters, section_name: '' })}
+                className={`btn btn-sm ${!filters.section_name ? 'btn-primary text-white' : 'btn-ghost bg-gray-100'}`}
+              >
+                الكل
+              </button>
+              {['أ', 'ب', 'ج', 'د', 'هـ', 'و'].map(sec => (
+                <button
+                  key={sec}
+                  onClick={() => setFilters({ ...filters, section_name: sec })}
+                  className={`btn btn-sm ${filters.section_name === sec ? 'btn-primary text-white' : 'btn-ghost bg-gray-100 text-gray-600'}`}
+                >
+                  {sec}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="form-control">
-            <label className="label"><span className="label-text font-bold text-gray-700">النوع</span></label>
-            <select name="video_type" className="select select-bordered w-full bg-gray-50 text-gray-800 border-gray-300" onChange={handleFilterChange}>
-              <option value="">الكل</option>
-              <option value="منهجي">منهجي</option>
-              <option value="اثرائي">اثرائي</option>
-            </select>
+
+          {/* Type Filter - The "Ratings" replacement */}
+          <div>
+            <label className="text-sm font-bold text-gray-500 mb-2 block">نوع المحتوى</label>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setFilters({ ...filters, video_type: '' })}
+                className={`btn ${!filters.video_type ? 'btn-primary text-white' : 'btn-outline border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'}`}
+              >
+                الكل
+              </button>
+              <button
+                onClick={() => setFilters({ ...filters, video_type: 'منهجي' })}
+                className={`btn gap-2 ${filters.video_type === 'منهجي' ? 'btn-info text-white' : 'btn-outline border-gray-300 text-gray-600 hover:bg-info hover:text-white hover:border-info'}`}
+              >
+                <i className="fa-solid fa-book"></i> منهجي
+              </button>
+              <button
+                onClick={() => setFilters({ ...filters, video_type: 'اثرائي' })}
+                className={`btn gap-2 ${filters.video_type === 'اثرائي' ? 'btn-warning text-white' : 'btn-outline border-gray-300 text-gray-600 hover:bg-warning hover:text-white hover:border-warning'}`}
+              >
+                <i className="fa-solid fa-star"></i> اثرائي
+              </button>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
+
+
 
       {/* Videos Section */}
       <div className="mb-8">
@@ -178,13 +220,15 @@ const Home = () => {
         </div>
       </div>
 
-      {videos.length === 0 && posts.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-xl shadow-md border border-gray-200">
-          <i className="fa-solid fa-box-open text-6xl text-gray-300 mb-4"></i>
-          <p className="text-gray-500 text-lg">لا توجد بيانات للعرض حالياً</p>
-        </div>
-      )}
-    </div>
+      {
+        videos.length === 0 && posts.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-xl shadow-md border border-gray-200">
+            <i className="fa-solid fa-box-open text-6xl text-gray-300 mb-4"></i>
+            <p className="text-gray-500 text-lg">لا توجد بيانات للعرض حالياً</p>
+          </div>
+        )
+      }
+    </div >
   )
 }
 

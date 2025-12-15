@@ -36,5 +36,6 @@ class AutoLoginResponse(BaseModel):
     auth_token: Optional[str] = None
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
+    # Add auth_token to allow returning it in login response to handle HttpOnly cookie limitation
     token_type: str = "bearer"
     message: Optional[str] = None

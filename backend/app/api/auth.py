@@ -149,6 +149,7 @@ async def login(
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "auth_token": auth_token,  # Return auth_token to frontend for localStorage backup
         "token_type": "bearer"
     }
 

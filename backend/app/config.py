@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # AWS
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 200
     ALLOWED_IMAGE_EXTENSIONS: set[str] = {"png", "jpg", "jpeg", "gif"}
     ALLOWED_VIDEO_EXTENSIONS: set[str] = {"mp4", "mov", "avi"}
-    UPLOAD_FOLDER: str = "uploads"  # Local storage fallback
+    UPLOAD_FOLDER: str = "/app/data/uploads"  # Persistent volume path
     
     # Video Limits
     VIDEO_MAX_DURATION_MANHAJI: int = 60  # seconds
