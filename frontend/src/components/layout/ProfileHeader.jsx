@@ -39,6 +39,7 @@ const ProfileHeader = () => {
                 </div>
                 <div className="ship-frame text-2xl lg:text-3xl border-image-gradient-blue mt-4">
                     <span className="animate-text-gradient bg-gradient-to-r from-green-400 via-primary to-green-400 bg-[length:200%_auto] bg-clip-text text-transparent">
+                        <i className="fa-solid fa-crown text-yellow-500 ml-2 animate-pulse"></i>
                         الاستاذ بسام الجنابي مادة الحاسوب
                     </span>
                 </div>

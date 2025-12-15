@@ -170,6 +170,12 @@ app.include_router(reports.router)
 # Mount static files (Legacy path)
 app.mount("/data/uploads", StaticFiles(directory=settings.UPLOAD_FOLDER), name="uploads")
 
+# Mount static assets (images)
+import pathlib
+assets_images_path = pathlib.Path(__file__).parent / "assets" / "images"
+if assets_images_path.exists():
+    app.mount("/assets/images", StaticFiles(directory=str(assets_images_path)), name="assets_images")
+
 
 @app.get("/")
 async def root():

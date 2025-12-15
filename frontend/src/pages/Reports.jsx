@@ -123,7 +123,12 @@ const Reports = () => {
                   <div className="stat bg-white/40 rounded-xl border border-white/50 text-center py-4">
                     <div className="stat-title mb-1 text-sm md:text-base">بطل الأسبوع</div>
                     <div className="stat-value text-2xl">
-                      {student.weekly_activity?.is_champion ? '🏆' : '-'}
+                      {student.weekly_activity?.is_champion ? (
+                        <span className="flex items-center justify-center gap-1">
+                          <i className="fa-solid fa-mask text-purple-600 animate-bounce"></i>
+                          <i className="fa-solid fa-trophy text-yellow-500"></i>
+                        </span>
+                      ) : '-'}
                     </div>
                   </div>
                 </div>
