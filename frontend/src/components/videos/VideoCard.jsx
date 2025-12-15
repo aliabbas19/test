@@ -57,7 +57,10 @@ const VideoCard = ({ video, onApprove }) => {
 
       {/* Video Player */}
       <div className="bg-black">
-        <VideoPlayer src={video.file_url} title={video.title} />
+        <VideoPlayer
+          src={video.file_url || (video.filepath ? `/data/uploads/${video.filepath}` : '')}
+          title={video.title}
+        />
       </div>
 
       {/* Actions Bar */}
