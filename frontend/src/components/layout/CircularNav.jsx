@@ -16,12 +16,12 @@ const CircularNav = () => {
     return (
         <nav className="
             flex lg:flex-col items-center justify-start lg:justify-center
-            fixed lg:top-0 lg:left-0 
-            w-full lg:w-[120px] 
+            fixed lg:top-0 lg:right-0 
+            w-full lg:w-[80px] 
             h-auto lg:h-screen 
             z-50
             bg-white/90 backdrop-blur-md 
-            border-t lg:border-t-0 lg:border-l border-white/20 shadow-lg
+            border-t lg:border-t-0 lg:border-r border-white/20 shadow-lg
             bottom-0 lg:bottom-auto
             overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto
             py-4 lg:py-10 px-4 lg:px-2
