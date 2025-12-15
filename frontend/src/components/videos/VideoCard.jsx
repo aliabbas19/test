@@ -9,7 +9,7 @@ const VideoCard = ({ video, onApprove }) => {
   const [likesCount, setLikesCount] = useState(0)
   const [userLikes, setUserLikes] = useState(false)
 
-  console.log('DEBUG: VideoCard video prop:', video) // Debugging log
+
 
 
   useEffect(() => {
@@ -56,17 +56,11 @@ const VideoCard = ({ video, onApprove }) => {
       </div>
 
       {/* Video Player */}
-      <div className="bg-black relative">
+      <div className="bg-black">
         <VideoPlayer
           src={video.file_url || (video.filepath ? `/data/uploads/${video.filepath}` : '')}
           title={video.title}
         />
-        {/* DEBUG OVERLAY */}
-        <div className="absolute top-0 left-0 bg-red-600 text-white text-xs p-2 z-50 opacity-90 font-mono">
-          DEBUG: {video.file_url ? 'URL_FROM_API' : 'URL_FALLBACK'} <br />
-          Path: {video.filepath} <br />
-          URL: {video.file_url || `/data/uploads/${video.filepath}`}
-        </div>
       </div>
 
       {/* Actions Bar */}
