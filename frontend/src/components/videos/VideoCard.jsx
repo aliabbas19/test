@@ -9,6 +9,9 @@ const VideoCard = ({ video, onApprove }) => {
   const [likesCount, setLikesCount] = useState(0)
   const [userLikes, setUserLikes] = useState(false)
 
+  console.log('DEBUG: VideoCard video prop:', video) // Debugging log
+
+
   useEffect(() => {
     // Fetch initial like status
     fetchLikeStatus()
