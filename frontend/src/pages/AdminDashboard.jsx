@@ -47,40 +47,49 @@ const AdminDashboard = () => {
 
   return (
     <div>
-      <div className="ship-frame text-3xl lg:text-4xl mb-8 mx-auto w-fit">
-        <span className="animate-text-gradient bg-gradient-to-r from-primary via-purple-600 to-primary bg-[length:200%_auto] bg-clip-text text-transparent">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-8">
+        <h1 className="text-3xl lg:text-4xl font-bold text-center text-gray-800">
+          <i className="fa-solid fa-gauge-high text-primary ml-2"></i>
           لوحة التحكم الرئيسية
-        </span>
+        </h1>
       </div>
 
-      <div className="tabs tabs-boxed mb-8 bg-transparent p-0 gap-2">
+      <div className="tabs tabs-boxed mb-8 bg-white p-2 rounded-xl shadow-md border border-gray-200 gap-2">
         <button
-          className={`tab tab-lg rounded-t-lg transition-all ${activeTab === 'stats' ? 'glass-effect bg-primary text-white border-b-2 border-primary' : 'bg-white/50 hover:bg-white/80'}`}
+          className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'stats'
+            ? 'bg-primary text-white shadow-md'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           onClick={() => setActiveTab('stats')}
         >
           <i className="fa-solid fa-chart-pie ml-2"></i> الإحصائيات
         </button>
         <button
-          className={`tab tab-lg rounded-t-lg transition-all ${activeTab === 'criteria' ? 'glass-effect bg-primary text-white border-b-2 border-primary' : 'bg-white/50 hover:bg-white/80'}`}
+          className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'criteria'
+            ? 'bg-primary text-white shadow-md'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           onClick={() => setActiveTab('criteria')}
         >
           <i className="fa-solid fa-list-check ml-2"></i> المعايير
         </button>
         <button
-          className={`tab tab-lg rounded-t-lg transition-all ${activeTab === 'telegram' ? 'glass-effect bg-primary text-white border-b-2 border-primary' : 'bg-white/50 hover:bg-white/80'}`}
+          className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'telegram'
+            ? 'bg-primary text-white shadow-md'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           onClick={() => setActiveTab('telegram')}
         >
           <i className="fa-brands fa-telegram ml-2"></i> تيليجرام
         </button>
         <button
-          className={`tab tab-lg rounded-t-lg transition-all ${activeTab === 'metrics' ? 'glass-effect bg-primary text-white border-b-2 border-primary' : 'bg-white/50 hover:bg-white/80'}`}
+          className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'metrics'
+            ? 'bg-primary text-white shadow-md'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           onClick={() => setActiveTab('metrics')}
         >
           <i className="fa-solid fa-server ml-2"></i> الخادم
         </button>
       </div>
 
-      <div className="glass-effect p-6 rounded-2xl min-h-[500px]">
+      <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-200 min-h-[500px]">
         {activeTab === 'stats' && stats && (
           <div className="space-y-8 animate-fade-in">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
