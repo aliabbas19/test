@@ -64,6 +64,27 @@ const VideoCard = ({ video, onApprove }) => {
         />
       </div>
 
+      {/* Ratings Display (Task 1) */}
+      {video.ratings && video.ratings.length > 0 && (
+        <div className="p-3 bg-gray-50 border-b border-gray-100">
+          <div className="flex flex-wrap gap-2">
+            {video.ratings.map((rating) => (
+              <div
+                key={rating.id}
+                className={`badge gap-1 p-3 ${rating.is_awarded ? 'badge-warning text-white shadow-sm' : 'badge-ghost opacity-50'}`}
+              >
+                {rating.is_awarded ? (
+                  <i className="fa-solid fa-star text-yellow-100"></i>
+                ) : (
+                  <i className="fa-regular fa-star"></i>
+                )}
+                <span className="font-bold">{rating.criterion_name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Actions Bar */}
       <div className="p-3 flex justify-between items-center bg-white border-b border-gray-100">
         <button

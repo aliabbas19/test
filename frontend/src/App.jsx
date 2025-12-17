@@ -11,6 +11,7 @@ import Conversations from './pages/Conversations'
 import AdminDashboard from './pages/AdminDashboard'
 import Reports from './pages/Reports'
 import VideoReview from './pages/VideoReview'
+import CompleteProfile from './pages/CompleteProfile'
 
 function App() {
   return (
@@ -19,9 +20,17 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
-            path="/"
+            path="/complete-profile"
             element={
               <ProtectedRoute>
+                <CompleteProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute requireProfileComplete={true}>
                 <Layout />
               </ProtectedRoute>
             }

@@ -64,7 +64,16 @@ async def get_videos(
             "timestamp": video.timestamp,
             "video_type": video.video_type,
             "is_approved": video.is_approved,
-            "is_archived": video.is_archived
+            "is_archived": video.is_archived,
+            "ratings": [
+                {
+                    "id": r.id,
+                    "criterion_id": r.criterion_id,
+                    "criterion_name": r.criterion.name,
+                    "is_awarded": r.is_awarded
+                }
+                for r in video.ratings
+            ]
         }
         result.append(video_dict)
     
@@ -97,7 +106,16 @@ async def get_video(
         "timestamp": video.timestamp,
         "video_type": video.video_type,
         "is_approved": video.is_approved,
-        "is_archived": video.is_archived
+        "is_archived": video.is_archived,
+        "ratings": [
+            {
+                "id": r.id,
+                "criterion_id": r.criterion_id,
+                "criterion_name": r.criterion.name,
+                "is_awarded": r.is_awarded
+            }
+            for r in video.ratings
+        ]
     }
     return video_dict
 

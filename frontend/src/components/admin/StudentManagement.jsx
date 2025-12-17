@@ -252,45 +252,7 @@ const StudentManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-bold">الصف</span>
-                  </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={newStudent.class_name}
-                    onChange={(e) => setNewStudent({ ...newStudent, class_name: e.target.value })}
-                  >
-                    <option value="">اختر الصف</option>
-                    <option value="الأول المتوسط">الأول المتوسط</option>
-                    <option value="الثاني المتوسط">الثاني المتوسط</option>
-                    <option value="الثالث المتوسط">الثالث المتوسط</option>
-                    <option value="الرابع الإعدادي">الرابع الإعدادي</option>
-                    <option value="الخامس الإعدادي">الخامس الإعدادي</option>
-                    <option value="السادس الإعدادي">السادس الإعدادي</option>
-                  </select>
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-bold">الشعبة</span>
-                  </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={newStudent.section_name}
-                    onChange={(e) => setNewStudent({ ...newStudent, section_name: e.target.value })}
-                  >
-                    <option value="">اختر الشعبة</option>
-                    <option value="أ">أ</option>
-                    <option value="ب">ب</option>
-                    <option value="ج">ج</option>
-                    <option value="د">د</option>
-                    <option value="هـ">هـ</option>
-                    <option value="و">و</option>
-                  </select>
-                </div>
-              </div>
+              {/* Class and Section removed (will be set by student in Complete Profile) */}
 
               <div className="flex gap-2 mt-6">
                 <button

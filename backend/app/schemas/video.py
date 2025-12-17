@@ -29,6 +29,17 @@ class Video(VideoBase):
     is_approved: bool
     is_archived: bool
     file_url: Optional[str] = None
+    ratings: Optional[list] = []
     
     class Config:
         from_attributes = True
+
+class VideoRating(BaseModel):
+    id: int
+    criterion_id: int
+    criterion_name: str
+    is_awarded: bool
+    
+    class Config:
+        from_attributes = True
+

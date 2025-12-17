@@ -2,7 +2,7 @@
 Champion service - handles superhero/champion logic
 """
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, Integer
 from datetime import date, timedelta, datetime
 from typing import Tuple, List, Dict
 from app.models.video import Video
@@ -41,7 +41,9 @@ def calculate_weekly_stars(db: Session, user_id: int, week_start: date) -> int:
         Video.user_id == user_id,
         func.date(Video.timestamp) >= week_start,
         Video.is_approved == True
-    ).scalar()
+    ).scalar() or 0
+    
+    return stars
     
     return stars if stars is not None else 0
 
@@ -88,23 +90,25 @@ def get_superhero_champions(db: Session) -> Tuple[list, int]:
         return [], 0
     
     # Get users who have perfect اثرائي videos this month
-    perfect_videos = db.query(Video.user_id).join(
+    # Get users with total stars >= 10 (Accumulated)
+    champions_query = db.query(Video.user_id, func.sum(func.cast(DynamicVideoRating.is_awarded, Integer)).label('total_stars')).join(
         DynamicVideoRating, Video.id == DynamicVideoRating.video_id
     ).join(
         RatingCriterion, DynamicVideoRating.criterion_id == RatingCriterion.id
     ).filter(
         RatingCriterion.video_type == 'اثرائي',
-        func.date(Video.timestamp) >= start_of_month,
         Video.is_approved == True
     ).group_by(
-        Video.id, Video.user_id
+        Video.user_id
     ).having(
-        func.sum(func.cast(DynamicVideoRating.is_awarded, db.Integer)) == max_stars
-    ).subquery()
+        func.sum(func.cast(DynamicVideoRating.is_awarded, Integer)) >= 10
+    ).all()
     
-    # Get unique users
+    # Get details for these users
+    champion_ids = [r.user_id for r in champions_query]
+    
     champions = db.query(User).filter(
-        User.id.in_(db.query(perfect_videos.c.user_id).distinct())
+        User.id.in_(champion_ids)
     ).order_by(User.username).all()
     
     champions_list = [
@@ -129,13 +133,8 @@ def get_week_champions(db: Session, class_name: str = None, section_name: str = 
     start_of_week = get_week_start_date_saturday(today)
     start_of_previous_week = start_of_week - timedelta(days=7)
     
-    # Get criteria count for منهجي
-    manhaji_criteria_count = db.query(RatingCriterion).filter(
-        RatingCriterion.video_type == 'منهجي'
-    ).count()
-    
-    if manhaji_criteria_count == 0:
-        return []
+    # Fixed threshold for Methodological Champion = 5 stars
+    CHAMPION_THRESHOLD = 5
     
     # Get all students
     query = db.query(User).filter(User.role == 'student')
@@ -168,7 +167,7 @@ def get_week_champions(db: Session, class_name: str = None, section_name: str = 
         update_star_bank(db, student_id, start_of_week, carried_stars, new_stars)
         
         # Check if champion (total stars >= criteria count)
-        if total_score_this_week >= manhaji_criteria_count:
+        if total_score_this_week >= CHAMPION_THRESHOLD:
             champions.append({
                 'id': student_id,
                 'name': student.full_name or student.username,

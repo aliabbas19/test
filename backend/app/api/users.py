@@ -136,12 +136,9 @@ async def update_current_user(
             raise HTTPException(status_code=500, detail="Failed to upload image")
 
     # Check if profile is complete
+    # Check if profile is complete (Relaxed check: Only Class, Section, and Name are required)
     if all([
         current_user.full_name,
-        current_user.address,
-        current_user.phone_number,
-        current_user.father_education,
-        current_user.mother_education,
         current_user.class_name,
         current_user.section_name
     ]):

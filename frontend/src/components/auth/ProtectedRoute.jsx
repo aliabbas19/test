@@ -17,13 +17,10 @@ const ProtectedRoute = ({ children, requireProfileComplete = false }) => {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  // Check profile completion for students (except on profile edit page)
+  // Check profile completion for students
   if (requireProfileComplete && user?.role === 'student') {
-    if (!user.is_profile_complete && location.pathname !== `/profile/${user.username}`) {
-      return <Navigate to={`/profile/${user.username}`} replace />
-    }
-    if (user.profile_reset_required && location.pathname !== `/profile/${user.username}`) {
-      return <Navigate to={`/profile/${user.username}`} replace />
+    if (!user.is_profile_complete) {
+      return <Navigate to="/complete-profile" replace />
     }
   }
 

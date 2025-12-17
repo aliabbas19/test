@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     // Try auto-login first if auth_token exists
     const authToken = getAuthToken()
     const accessToken = localStorage.getItem('access_token')
-    
+
     if (authToken && !accessToken) {
       // Try auto-login
       autoLoginApi()
@@ -80,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    refreshUser: fetchUser,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
   }
