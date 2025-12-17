@@ -218,7 +218,7 @@ const StudentManagement = () => {
                 <input
                   type="text"
                   className="input input-bordered w-full"
-                  placeholder="مثال: student123"
+                  placeholder={newStudent.role === 'admin' ? "مثال: admin_user" : "مثال: student123"}
                   value={newStudent.username}
                   onChange={(e) => setNewStudent({ ...newStudent, username: e.target.value })}
                   required
@@ -246,7 +246,7 @@ const StudentManagement = () => {
                 <input
                   type="text"
                   className="input input-bordered w-full"
-                  placeholder="اسم الطالب"
+                  placeholder={newStudent.role === 'admin' ? "اسم الأدمن (اختياري)" : "اسم الطالب"}
                   value={newStudent.full_name}
                   onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })}
                 />
