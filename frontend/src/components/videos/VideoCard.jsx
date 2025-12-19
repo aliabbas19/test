@@ -7,25 +7,15 @@ import CommentSection from '../comments/CommentSection'
 
 const VideoCard = ({ video, onApprove }) => {
   const { isAdmin } = useAuth()
-  const [likesCount, setLikesCount] = useState(0)
-  const [userLikes, setUserLikes] = useState(false)
+  // Initialize from video data (comes from API)
+  const [likesCount, setLikesCount] = useState(video.likes_count || 0)
+  const [userLikes, setUserLikes] = useState(video.user_likes || false)
 
-
-
-
+  // Update state when video prop changes
   useEffect(() => {
-    // Fetch initial like status
-    fetchLikeStatus()
-  }, [video.id])
-
-  const fetchLikeStatus = async () => {
-    try {
-      // This would need a GET endpoint to fetch like status
-      // For now, we'll get it from the video data if available
-    } catch (error) {
-      console.error('Failed to fetch like status:', error)
-    }
-  }
+    setLikesCount(video.likes_count || 0)
+    setUserLikes(video.user_likes || false)
+  }, [video.id, video.likes_count, video.user_likes])
 
   const handleLike = async () => {
     try {
