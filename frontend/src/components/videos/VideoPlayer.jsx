@@ -3,14 +3,14 @@ import Hls from 'hls.js'
 
 /**
  * HLS Video Player Component
- * Supports both HLS streaming (.m3u8) and fallback to direct video files
- * Optimized for zero-buffering experience
+ * Supports both HLS streaming (.m3u8) and direct video files (MP4)
+ * Backward compatible with existing S3 videos
  */
 const VideoPlayer = ({
   src,
-  hlsSrc,  // HLS playlist URL (optional, preferred)
+  hlsSrc,
   title,
-  processingStatus = 'ready',  // pending, processing, ready, failed
+  processingStatus,
   thumbnail,
   onReady,
   onError: onErrorCallback
@@ -19,15 +19,10 @@ const VideoPlayer = ({
   const hlsRef = useRef(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [isProcessing, setIsProcessing] = useState(processingStatus !== 'ready')
 
-  // Determine if we should use HLS
-  const useHls = hlsSrc && (hlsSrc.endsWith('.m3u8') || hlsSrc.includes('/hls/'))
-  const videoSource = useHls ? hlsSrc : src
-
-  useEffect(() => {
-    setIsProcessing(processingStatus !== 'ready')
-  }, [processingStatus])
+  // Determine video source - prioritize direct src for backward compatibility
+  const videoSource = src || hlsSrc
+  const useHls = hlsSrc && hlsSrc.endsWith('.m3u8') && !src
 
   useEffect(() => {
     const video = videoRef.current
@@ -43,16 +38,10 @@ const VideoPlayer = ({
     }
 
     if (useHls && Hls.isSupported()) {
-      // Use HLS.js for browsers that don't natively support HLS
+      // Use HLS.js for .m3u8 streams
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        // Preload first segments for instant playback
-        startLevel: -1,
-        autoStartLoad: true,
       })
 
       hlsRef.current = hls
@@ -67,37 +56,18 @@ const VideoPlayer = ({
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          console.error('HLS fatal error:', data)
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              // Try to recover from network error
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError()
-              break
-            default:
-              setError(true)
-              setLoading(false)
-              onErrorCallback?.(data)
-              break
-          }
+          console.error('HLS error:', data)
+          setError(true)
+          setLoading(false)
+          onErrorCallback?.(data)
         }
       })
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari, iOS)
+    } else if (video.canPlayType('application/vnd.apple.mpegurl') && useHls) {
+      // Native HLS support (Safari)
       video.src = videoSource
-      video.addEventListener('loadeddata', () => {
-        setLoading(false)
-        onReady?.()
-      })
-    } else if (src) {
-      // Fallback to direct video source (MP4)
-      video.src = src
-      video.addEventListener('loadeddata', () => {
-        setLoading(false)
-        onReady?.()
-      })
+    } else {
+      // Direct video file (MP4, etc.) - for S3 videos
+      video.src = videoSource
     }
 
     return () => {
@@ -106,7 +76,7 @@ const VideoPlayer = ({
         hlsRef.current = null
       }
     }
-  }, [videoSource, src, useHls])
+  }, [videoSource, useHls])
 
   const handleError = () => {
     setError(true)
@@ -128,30 +98,6 @@ const VideoPlayer = ({
     } else {
       videoRef.current?.load()
     }
-  }
-
-  // Show processing state
-  if (isProcessing) {
-    return (
-      <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg p-8 text-center aspect-video flex flex-col items-center justify-center">
-        {thumbnail ? (
-          <img
-            src={thumbnail}
-            alt={title}
-            className="absolute inset-0 w-full h-full object-cover opacity-50 rounded-lg"
-          />
-        ) : null}
-        <div className="relative z-10">
-          <span className="loading loading-spinner loading-lg text-primary mb-3"></span>
-          <p className="text-gray-600 font-medium">جاري معالجة الفيديو...</p>
-          <p className="text-sm text-gray-400 mt-1">
-            {processingStatus === 'pending' && 'في انتظار المعالجة'}
-            {processingStatus === 'processing' && 'يتم تحويل الفيديو للبث السريع'}
-            {processingStatus === 'failed' && 'فشلت المعالجة'}
-          </p>
-        </div>
-      </div>
-    )
   }
 
   // Show error state
@@ -178,25 +124,16 @@ const VideoPlayer = ({
           <span className="loading loading-spinner loading-lg text-primary"></span>
         </div>
       )}
-      {thumbnail && loading && (
-        <img
-          src={thumbnail}
-          alt={title}
-          className="absolute inset-0 w-full h-full object-cover rounded-lg"
-        />
-      )}
       <video
         ref={videoRef}
         controls
         className="w-full rounded-lg"
-        preload="auto"
+        preload="metadata"
         onError={handleError}
         onLoadedData={handleLoadedData}
         playsInline
         poster={thumbnail}
       >
-        {/* Fallback sources for browsers without HLS support */}
-        {!useHls && src && <source src={src} type="video/mp4" />}
         متصفحك لا يدعم تشغيل الفيديو
       </video>
     </div>
