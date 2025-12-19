@@ -52,9 +52,17 @@ async def get_videos(
     
     videos = query.order_by(Video.timestamp.desc()).all()
     
-    # Add file URLs
+    # Add file URLs and likes
     result = []
     for video in videos:
+        # Count likes
+        likes_count = db.query(VideoLike).filter(VideoLike.video_id == video.id).count()
+        # Check if current user liked
+        user_likes = db.query(VideoLike).filter(
+            VideoLike.video_id == video.id,
+            VideoLike.user_id == current_user.id
+        ).first() is not None
+        
         video_dict = {
             "id": video.id,
             "title": video.title,
@@ -65,6 +73,8 @@ async def get_videos(
             "video_type": video.video_type,
             "is_approved": video.is_approved,
             "is_archived": video.is_archived,
+            "likes_count": likes_count,
+            "user_likes": user_likes,
             "ratings": [
                 {
                     "id": r.id,
