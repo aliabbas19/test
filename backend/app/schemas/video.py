@@ -30,6 +30,8 @@ class Video(VideoBase):
     is_archived: bool
     file_url: Optional[str] = None
     ratings: Optional[list] = []
+    likes_count: Optional[int] = 0
+    user_likes: Optional[bool] = False
     
     class Config:
         from_attributes = True
