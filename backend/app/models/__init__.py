@@ -11,6 +11,7 @@ from app.models.suspension import Suspension
 from app.models.star_bank import StarBank
 from app.models.telegram_settings import TelegramSettings
 from app.models.device_binding import DeviceBinding
+from app.models.badge import UserBadge, BadgeThreshold
 
 __all__ = [
     "User",
@@ -25,4 +26,6 @@ __all__ = [
     "StarBank",
     "TelegramSettings",
     "DeviceBinding",
+    "UserBadge",
+    "BadgeThreshold",
 ]

@@ -1,27 +1,34 @@
 """
 File upload API routes
 """
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import tempfile
 import os
-from app.database import get_db
+import shutil
+from app.database import get_db, SessionLocal
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.models.video import Video
 from app.core.aws import upload_file_to_s3, get_file_url, generate_presigned_url
 from app.core.utils import allowed_file, get_video_duration, secure_filename_arabic
 from app.core.cache import unapproved_cache
+from app.core.hls_processor import process_video_background
 from app.config import settings
 import boto3
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
+# Local video storage directory
+VIDEO_UPLOAD_DIR = "/app/videos"
+os.makedirs(VIDEO_UPLOAD_DIR, exist_ok=True)
+
 
 @router.post("/video")
 async def upload_video(
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     video_type: str = Form(...),
     video_file: UploadFile = File(...),
@@ -29,7 +36,7 @@ async def upload_video(
     db: Session = Depends(get_db)
 ):
     """
-    Upload video file
+    Upload video file and process to HLS format
     Validates duration: 60s for منهجي, 240s for اثرائي
     """
     # Validate file extension
@@ -74,32 +81,31 @@ async def upload_video(
         # Validate duration based on video type
         max_duration = settings.VIDEO_MAX_DURATION_MANHAJI if video_type == 'منهجي' else settings.VIDEO_MAX_DURATION_ITHRAI
         if duration > max_duration:
+            # Clean up and reject
+            os.remove(temp_path)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Video duration ({int(duration)}s) exceeds maximum ({max_duration}s) for {video_type}"
             )
         
-        # Generate S3 key
+        # Generate unique filename for local storage
         timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
         safe_filename = secure_filename_arabic(video_file.filename)
-        s3_key = f"videos/{current_user.id}/{timestamp}_{safe_filename}"
+        local_filename = f"{current_user.id}_{timestamp}_{safe_filename}"
+        local_path = os.path.join(VIDEO_UPLOAD_DIR, local_filename)
         
-        # Upload to S3
-        content_type = video_file.content_type or 'video/mp4'
-        if not upload_file_to_s3(file_content, s3_key, content_type):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to upload file to storage"
-            )
+        # Move temp file to permanent location
+        shutil.move(temp_path, local_path)
         
-        # Create video record
+        # Create video record with pending status
         is_approved = current_user.role == 'admin'
         video = Video(
             title=title,
-            filepath=s3_key,
+            filepath=local_path,
             user_id=current_user.id,
             video_type=video_type,
-            is_approved=is_approved
+            is_approved=is_approved,
+            processing_status='pending'
         )
         db.add(video)
         db.commit()
@@ -109,17 +115,33 @@ async def upload_video(
         if not is_approved:
             unapproved_cache.delete('unapproved_videos')
         
+        # Start HLS processing in background
+        background_tasks.add_task(
+            process_video_background,
+            local_path,
+            video.id,
+            SessionLocal,
+            cleanup_source=False  # Keep source for re-processing if needed
+        )
+        
         return {
             "status": "success",
-            "message": f"Video uploaded successfully ({int(duration)}s)",
+            "message": f"Video uploaded successfully ({int(duration)}s). Processing for streaming...",
             "video_id": video.id,
-            "is_approved": is_approved
+            "is_approved": is_approved,
+            "processing_status": "pending"
         }
     
-    finally:
-        # Clean up temporary file
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Clean up on unexpected error
         if os.path.exists(temp_path):
             os.remove(temp_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload failed: {str(e)}"
+        )
 
 
 @router.post("/profile-image")

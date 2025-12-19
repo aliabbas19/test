@@ -70,6 +70,9 @@ async def rate_video(
     db: Session = Depends(get_db)
 ):
     """Rate a video (admin only)"""
+    from datetime import datetime
+    from app.models.badge import UserBadge
+    
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
@@ -110,14 +113,38 @@ async def rate_video(
     
     # Check for superhero status (اثرائي with all stars)
     champion_message = None
+    badge_awarded = None
     if video.video_type == 'اثرائي' and total_stars == max_stars and max_stars > 0:
-        champion_message = "أصبح هذا الطالب بطلاً خارقاً!"
+        # Award superhero badge
+        now = datetime.utcnow()
+        
+        # Check if already awarded for this video
+        existing_badge = db.query(UserBadge).filter(
+            UserBadge.user_id == video.user_id,
+            UserBadge.video_id == video_id,
+            UserBadge.badge_type == 'superhero'
+        ).first()
+        
+        if not existing_badge:
+            badge = UserBadge(
+                user_id=video.user_id,
+                badge_type='superhero',
+                video_id=video_id,
+                month=now.month,
+                year=now.year
+            )
+            db.add(badge)
+            db.commit()
+            badge_awarded = 'superhero'
+            champion_message = "🦸 أصبح هذا الطالب بطلاً خارقاً!"
     
     return {
         "video_id": video_id,
         "total_stars": total_stars,
         "max_stars": max_stars,
-        "ratings": rating_data.ratings
+        "ratings": rating_data.ratings,
+        "badge_awarded": badge_awarded,
+        "champion_message": champion_message
     }
 
 

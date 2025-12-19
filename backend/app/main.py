@@ -7,7 +7,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import time
 from app.config import settings
 from app.database import engine, Base
-from app.api import auth, videos, uploads, comments, ratings, messages, users, admin, posts, reports
+from app.api import auth, videos, uploads, comments, ratings, messages, users, admin, posts, reports, hls, websocket
 from app.core.rate_limit import rate_limit_middleware
 from app.core.metrics import request_metrics
 from contextlib import asynccontextmanager
@@ -166,6 +166,8 @@ app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(posts.router)
 app.include_router(reports.router)
+app.include_router(hls.router)
+app.include_router(websocket.router)
 
 # Mount static files (Legacy path)
 app.mount("/data/uploads", StaticFiles(directory=settings.UPLOAD_FOLDER), name="uploads")

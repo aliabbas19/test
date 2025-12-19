@@ -19,6 +19,11 @@ class Video(Base):
     is_approved = Column(Boolean, default=False, index=True)
     is_archived = Column(Boolean, default=False, index=True)
     
+    # HLS Streaming fields
+    hls_path = Column(String, nullable=True)  # Path to .m3u8 playlist
+    processing_status = Column(String, default='pending')  # pending, processing, ready, failed
+    thumbnail_path = Column(String, nullable=True)  # Path to thumbnail image
+    
     # Relationships
     user = relationship("User", back_populates="videos")
     comments = relationship("Comment", back_populates="video", cascade="all, delete-orphan")

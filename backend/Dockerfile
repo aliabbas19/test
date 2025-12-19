@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including FFmpeg for HLS transcoding
 RUN apt-get update && apt-get install -y \
     gcc \
     pkg-config \
     postgresql-client \
+    ffmpeg \
     libavformat-dev \
     libavcodec-dev \
     libavdevice-dev \
