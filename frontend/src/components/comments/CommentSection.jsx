@@ -95,8 +95,11 @@ const CommentSection = ({ videoId, compact = false }) => {
               <ProfileImage src={comment.user?.profile_image} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-sm text-gray-800">
+                  <span className={`font-bold text-sm ${comment.user?.role === 'admin' ? 'admin-username-gradient' : 'text-gray-800'}`}>
                     {comment.is_pinned && '📌 '}
+                    {comment.user?.role === 'admin' && (
+                      <i className="fa-solid fa-crown admin-crown-icon"></i>
+                    )}
                     {comment.user?.full_name || comment.user?.username}
                   </span>
                   <div className="flex gap-1">

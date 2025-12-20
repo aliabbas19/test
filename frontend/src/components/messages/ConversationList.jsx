@@ -37,8 +37,8 @@ const ConversationList = ({ onSelectConversation, selectedId }) => {
         <div
           key={conv.id}
           className={`p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border ${selectedId === conv.id
-              ? 'glass-effect bg-primary/20 border-primary/30 shadow-lg'
-              : 'hover:bg-white/10 border-transparent hover:border-white/10'
+            ? 'glass-effect bg-primary/20 border-primary/30 shadow-lg'
+            : 'hover:bg-white/10 border-transparent hover:border-white/10'
             }`}
           onClick={() => onSelectConversation(conv)}
         >
@@ -51,7 +51,10 @@ const ConversationList = ({ onSelectConversation, selectedId }) => {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`font-bold truncate ${selectedId === conv.id ? 'text-primary' : 'text-gray-200'}`}>
+            <p className={`font-bold truncate ${conv.role === 'admin' ? 'admin-username-gradient' : (selectedId === conv.id ? 'text-primary' : 'text-gray-200')}`}>
+              {conv.role === 'admin' && (
+                <i className="fa-solid fa-crown admin-crown-icon"></i>
+              )}
               {conv.full_name || conv.username}
             </p>
             {conv.class_name && (

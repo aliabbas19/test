@@ -206,7 +206,10 @@ const ChatWindow = ({
           )}
         </div>
         <div className="flex-1">
-          <p className="font-bold text-gray-200">
+          <p className={`font-bold ${conversation.role === 'admin' ? 'admin-username-gradient' : 'text-gray-200'}`}>
+            {conversation.role === 'admin' && (
+              <i className="fa-solid fa-crown admin-crown-icon"></i>
+            )}
             {conversation.full_name || conversation.username}
           </p>
           <p className="text-xs text-gray-400">
@@ -254,8 +257,8 @@ const ChatWindow = ({
                 <div className={`max-w-[75%] ${isMine ? 'order-2' : 'order-1'}`}>
                   <div
                     className={`px-4 py-2 rounded-2xl ${isMine
-                        ? 'bg-primary text-white rounded-br-md'
-                        : 'bg-white/10 text-gray-200 rounded-bl-md'
+                      ? 'bg-primary text-white rounded-br-md'
+                      : 'bg-white/10 text-gray-200 rounded-bl-md'
                       } ${msg.is_sending ? 'opacity-70' : ''}`}
                   >
                     <p className="break-words">{msg.content}</p>

@@ -121,7 +121,12 @@ const Profile = () => {
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-800 mb-2">{user.full_name || user.username}</h2>
+                  <h2 className={`text-3xl font-bold mb-2 ${user.role === 'admin' ? 'admin-username-gradient' : 'text-gray-800'}`}>
+                    {user.role === 'admin' && (
+                      <i className="fa-solid fa-crown admin-crown-icon"></i>
+                    )}
+                    {user.full_name || user.username}
+                  </h2>
                   <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                     <span className="badge badge-primary badge-outline gap-1 p-3">
                       <i className="fa-solid fa-graduation-cap"></i> {user.class_name || 'غير محدد'}

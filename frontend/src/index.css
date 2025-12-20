@@ -80,4 +80,38 @@
     @apply bg-white/95 backdrop-blur-md rounded-xl mb-6 shadow-md overflow-hidden relative border border-white/20 border-r-[5px] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl;
     border-image: linear-gradient(to top, #0d6efd, #20c997) 1;
   }
+
+  /* Admin Crown Icon and Username Gradient Styles */
+  .admin-crown-icon {
+    @apply text-yellow-500 mr-1;
+    filter: drop-shadow(0 0 3px rgba(255, 193, 7, 0.5));
+    animation: crownGlow 2s ease-in-out infinite alternate;
+  }
+
+  .admin-username-gradient {
+    font-weight: bold;
+    background: linear-gradient(90deg, #ff8c00, #ff4500, #ff8c00);
+    background-size: 200% auto;
+    color: #fff;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: animatedTextGradient 3s linear infinite;
+  }
+
+  @keyframes animatedTextGradient {
+    to {
+      background-position: -200% center;
+    }
+  }
+
+  @keyframes crownGlow {
+    from {
+      filter: drop-shadow(0 0 3px rgba(255, 193, 7, 0.5));
+    }
+
+    to {
+      filter: drop-shadow(0 0 8px rgba(255, 193, 7, 0.8));
+    }
+  }
 }

@@ -30,6 +30,8 @@ async def get_conversations(
                 "full_name": student.full_name,
                 "class_name": student.class_name,
                 "section_name": student.section_name,
+                "profile_image": student.profile_image,
+                "role": student.role,
                 "unread_count": db.query(Message).filter(
                     Message.receiver_id == current_user.id,
                     Message.sender_id == student.id,
@@ -48,6 +50,8 @@ async def get_conversations(
             "id": admin.id,
             "username": admin.username,
             "full_name": admin.full_name,
+            "profile_image": admin.profile_image,
+            "role": admin.role,
             "unread_count": db.query(Message).filter(
                 Message.receiver_id == current_user.id,
                 Message.sender_id == admin.id,
