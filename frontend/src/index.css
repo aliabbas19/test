@@ -84,6 +84,9 @@
   /* Admin Crown Icon and Username Gradient Styles */
   .admin-crown-icon {
     @apply text-yellow-500 mr-1;
+    -webkit-text-fill-color: #eab308 !important;
+    /* Override parent's transparent */
+    color: #eab308 !important;
     filter: drop-shadow(0 0 3px rgba(255, 193, 7, 0.5));
     animation: crownGlow 2s ease-in-out infinite alternate;
   }
