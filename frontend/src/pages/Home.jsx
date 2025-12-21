@@ -215,7 +215,12 @@ const Home = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {videos.map((video) => (
-            <VideoCard key={video.id} video={video} onApprove={fetchVideos} />
+            <VideoCard
+              key={video.id}
+              video={video}
+              onApprove={fetchVideos}
+              onDelete={(videoId) => setVideos(videos.filter(v => v.id !== videoId))}
+            />
           ))}
         </div>
       </div>

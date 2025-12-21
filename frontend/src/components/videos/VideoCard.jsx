@@ -5,11 +5,15 @@ import { useAuth } from '../../context/AuthContext'
 import VideoPlayer from './VideoPlayer'
 import CommentSection from '../comments/CommentSection'
 
-const VideoCard = ({ video, onApprove }) => {
-  const { isAdmin } = useAuth()
+const VideoCard = ({ video, onApprove, onDelete }) => {
+  const { user, isAdmin } = useAuth()
   // Initialize from video data (comes from API)
   const [likesCount, setLikesCount] = useState(video.likes_count || 0)
   const [userLikes, setUserLikes] = useState(video.user_likes || false)
+  const [deleting, setDeleting] = useState(false)
+
+  // Check if current user is the owner
+  const isOwner = user?.id === video.user_id
 
   // Update state when video prop changes
   useEffect(() => {
@@ -33,6 +37,22 @@ const VideoCard = ({ video, onApprove }) => {
       if (onApprove) onApprove()
     } catch (error) {
       console.error('Failed to approve video:', error)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا الإجراء.')) return
+
+    setDeleting(true)
+    try {
+      await api.delete(`/api/videos/${video.id}`)
+      if (onDelete) onDelete(video.id)
+      alert('تم حذف الفيديو بنجاح')
+    } catch (error) {
+      console.error('Failed to delete video:', error)
+      alert('حدث خطأ أثناء حذف الفيديو')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -77,25 +97,45 @@ const VideoCard = ({ video, onApprove }) => {
 
       {/* Actions Bar */}
       <div className="p-3 flex justify-between items-center bg-white border-b border-gray-100">
-        <button
-          onClick={handleLike}
-          className={`btn btn-sm gap-2 ${userLikes
-            ? 'btn-error text-white shadow-sm'
-            : 'btn-ghost text-gray-500 hover:text-red-500 hover:bg-red-50'}`}
-        >
-          <i className={`${userLikes ? 'fa-solid' : 'fa-regular'} fa-heart text-lg`}></i>
-          <span className="font-bold">{likesCount}</span>
-        </button>
-
-        {/* Admin Approve Button */}
-        {isAdmin && !video.is_approved && (
+        <div className="flex gap-2">
           <button
-            onClick={handleApprove}
-            className="btn btn-sm btn-success text-white gap-1"
+            onClick={handleLike}
+            className={`btn btn-sm gap-2 ${userLikes
+              ? 'btn-error text-white shadow-sm'
+              : 'btn-ghost text-gray-500 hover:text-red-500 hover:bg-red-50'}`}
           >
-            <i className="fa-solid fa-check"></i> موافقة
+            <i className={`${userLikes ? 'fa-solid' : 'fa-regular'} fa-heart text-lg`}></i>
+            <span className="font-bold">{likesCount}</span>
           </button>
-        )}
+        </div>
+
+        <div className="flex gap-2">
+          {/* Admin Approve Button */}
+          {isAdmin && !video.is_approved && (
+            <button
+              onClick={handleApprove}
+              className="btn btn-sm btn-success text-white gap-1"
+            >
+              <i className="fa-solid fa-check"></i> موافقة
+            </button>
+          )}
+
+          {/* Delete Button - for owner or admin */}
+          {(isOwner || isAdmin) && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="btn btn-sm btn-error text-white gap-1"
+            >
+              {deleting ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <i className="fa-solid fa-trash"></i>
+              )}
+              حذف
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Inline Instagram-style Comments */}
