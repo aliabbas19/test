@@ -257,3 +257,40 @@ async def delete_video(
     db.commit()
     
     return {"status": "success", "message": "Video deleted"}
+
+
+@router.put("/{video_id}")
+async def update_video(
+    video_id: int,
+    title: Optional[str] = None,
+    video_type: Optional[str] = None,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update video details (admin only)
+    """
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Update fields if provided
+    if title is not None:
+        video.title = title
+    if video_type is not None:
+        if video_type not in ['منهجي', 'اثرائي']:
+            raise HTTPException(status_code=400, detail="نوع الفيديو يجب أن يكون 'منهجي' أو 'اثرائي'")
+        video.video_type = video_type
+    
+    db.commit()
+    db.refresh(video)
+    
+    return {
+        "status": "success",
+        "message": "تم تحديث الفيديو بنجاح",
+        "video": {
+            "id": video.id,
+            "title": video.title,
+            "video_type": video.video_type
+        }
+    }
