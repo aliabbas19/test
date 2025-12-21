@@ -14,7 +14,7 @@ from app.schemas.comment import Comment as CommentSchema, CommentCreate, Comment
 router = APIRouter(prefix="/api/comments", tags=["comments"])
 
 
-@router.get("/video/{video_id}", response_model=List[CommentSchema])
+@router.get("/video/{video_id}")
 async def get_video_comments(
     video_id: int,
     current_user: User = Depends(get_current_active_user),
