@@ -15,15 +15,16 @@ const CompleteProfile = () => {
     const [error, setError] = useState('')
 
     useEffect(() => {
-        if (user) {
-            setFormData(prev => ({
-                ...prev,
+        // Only initialize form data if it hasn't been set yet
+        if (user && !formData.full_name && !formData.class_name) {
+            setFormData({
                 full_name: user.full_name || user.username || '',
                 class_name: user.class_name || '',
                 section_name: user.section_name || ''
-            }))
+            })
         }
     }, [user])
+
 
     const handleSubmit = async (e) => {
         e.preventDefault()

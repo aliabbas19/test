@@ -5,6 +5,8 @@ import VideoUpload from '../components/videos/VideoUpload'
 import PostCard from '../components/posts/PostCard'
 import { useAuth } from '../context/AuthContext'
 
+import ImageSlider from '../components/common/ImageSlider'
+
 const Home = () => {
   const { isAdmin } = useAuth()
   const [videos, setVideos] = useState([])
@@ -77,7 +79,10 @@ const Home = () => {
   }
 
   return (
-    <div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Image Slider */}
+      <ImageSlider />
+
       {/* Admin: Create Post / Upload Video */}
       {isAdmin && (
         <div className="mb-8 grid gap-6 md:grid-cols-2">
