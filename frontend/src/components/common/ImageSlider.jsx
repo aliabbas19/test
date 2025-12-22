@@ -76,7 +76,7 @@ const ImageSlider = () => {
                         <div className="relative z-20 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 px-6 md:px-12 w-full max-w-4xl">
 
                             {/* Icon Container with Glow */}
-                            <div className="relative shrink-0">
+                            <div className="relative shrink-0 animate-float">
                                 <div className="absolute inset-0 bg-white/30 blur-2xl rounded-full scale-110"></div>
                                 <div className="relative w-24 h-24 md:w-32 md:h-32 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105 duration-500">
                                     <i className={`${slide.icon} text-5xl md:text-7xl text-white drop-shadow-lg`}></i>
@@ -85,12 +85,12 @@ const ImageSlider = () => {
 
                             {/* Text Content */}
                             <div className="text-center md:text-right text-white max-w-lg">
-                                <h2 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-md tracking-tight">{slide.title}</h2>
-                                <p className="text-lg md:text-xl text-white/90 leading-relaxed font-light hidden md:block border-r-4 border-white/30 pr-4 mt-4">
+                                <h2 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-md tracking-tight animate-slide-up" style={{ animationDelay: '100ms' }}>{slide.title}</h2>
+                                <p className="text-lg md:text-xl text-white/90 leading-relaxed font-light hidden md:block border-r-4 border-white/30 pr-4 mt-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
                                     {slide.description}
                                 </p>
                                 {/* Mobile Short Desc */}
-                                <p className="text-sm text-white/90 leading-relaxed font-light md:hidden mt-2">
+                                <p className="text-sm text-white/90 leading-relaxed font-light md:hidden mt-2 animate-slide-up" style={{ animationDelay: '200ms' }}>
                                     {slide.description}
                                 </p>
                             </div>

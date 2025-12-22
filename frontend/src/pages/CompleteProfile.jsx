@@ -7,26 +7,13 @@ const CompleteProfile = () => {
     const { user, refreshUser } = useAuth()
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState({
-        full_name: '',
-        class_name: '',
-        section_name: ''
-    })
+    // Initialize state ONCE on mount using lazy initialization
+    const [formData, setFormData] = useState(() => ({
+        full_name: user?.full_name || user?.username || '',
+        class_name: user?.class_name || '',
+        section_name: user?.section_name || ''
+    }))
     const [error, setError] = useState('')
-
-    const [initialized, setInitialized] = useState(false)
-
-    useEffect(() => {
-        // Initialize form data only once when user data is available
-        if (user && !initialized) {
-            setFormData({
-                full_name: user.full_name || user.username || '',
-                class_name: user.class_name || '',
-                section_name: user.section_name || ''
-            })
-            setInitialized(true)
-        }
-    }, [user, initialized])
 
 
     const handleSubmit = async (e) => {
