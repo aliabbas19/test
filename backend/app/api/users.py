@@ -97,6 +97,14 @@ async def update_current_user(
     from app.config import settings
     from datetime import datetime
 
+    # DEBUG: Print received values
+    print(f"=== UPDATE USER DEBUG ===")
+    print(f"User: {current_user.username}")
+    print(f"Received class_name: '{class_name}' (type: {type(class_name)})")
+    print(f"Received section_name: '{section_name}' (type: {type(section_name)})")
+    print(f"Received full_name: '{full_name}'")
+    print(f"Current is_profile_complete: {current_user.is_profile_complete}")
+
     if password:
         current_user.password = get_password_hash(password)
     
@@ -117,9 +125,11 @@ async def update_current_user(
     
     if class_name is not None:
         current_user.class_name = class_name
+        print(f"Set class_name to: '{current_user.class_name}'")
     
     if section_name is not None:
         current_user.section_name = section_name
+        print(f"Set section_name to: '{current_user.section_name}'")
     
     # Handle Profile Image Upload
     if profile_image:
@@ -145,19 +155,29 @@ async def update_current_user(
         else:
             raise HTTPException(status_code=500, detail="Failed to upload image")
 
-    # SIMPLIFIED ROBUST CHECK (v7.0)
-    # If we have class and section, assume profile is complete enough to proceed.
-    # We trust the frontend sent a valid name.
+    # FORCE SET is_profile_complete (v8.0)
+    print(f"Before check - class: '{current_user.class_name}', section: '{current_user.section_name}'")
+    
     if current_user.class_name and current_user.section_name:
         current_user.is_profile_complete = True
         current_user.profile_reset_required = False
+        print(f"SET is_profile_complete = True")
+    else:
+        print(f"NOT setting is_profile_complete. class={bool(current_user.class_name)}, section={bool(current_user.section_name)}")
     
-    # Verify explicitly for safety
-    if current_user.role == 'student' and current_user.class_name and current_user.section_name:
-         current_user.is_profile_complete = True
+    # Double-check for students
+    if current_user.role == 'student':
+        if current_user.class_name and current_user.section_name:
+            current_user.is_profile_complete = True
+            print(f"STUDENT FORCE: is_profile_complete = True")
+    
+    print(f"Final is_profile_complete: {current_user.is_profile_complete}")
     
     db.commit()
     db.refresh(current_user)
+    
+    print(f"After commit - is_profile_complete: {current_user.is_profile_complete}")
+    print(f"=== END UPDATE DEBUG ===")
     
     return current_user
 
