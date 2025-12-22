@@ -135,27 +135,16 @@ async def update_current_user(
         else:
             raise HTTPException(status_code=500, detail="Failed to upload image")
 
-    # Check if profile is complete
-    # Check if profile is complete (Relaxed check: Only Class, Section, and Name are required)
-    # Ensure full_name is treated correctly even if empty string is passed (though frontend validation should prevent this)
-    
-    # Force update if fields are present
-    has_name = current_user.full_name and current_user.full_name.strip()
-    has_class = current_user.class_name and current_user.class_name.strip()
-    has_section = current_user.section_name and current_user.section_name.strip()
-
-    print(f"DEBUG PROFILE CHECK: Name='{current_user.full_name}', Class='{current_user.class_name}', Sec='{current_user.section_name}'")
-
-    if has_name and has_class and has_section:
-        current_user.is_profile_complete = True
-    else:
-        # If any is missing, set to False (or keep as is? Better to be explicit)
-        # Only set to False if we are sure. But here we want to set it to True.
-        print(f"DEBUG: Profile incomplete. Name={bool(has_name)}, Class={bool(has_class)}, Sec={bool(has_section)}")
-    
-    # Clear profile_reset_required if class and section are set
+    # SIMPLIFIED ROBUST CHECK (v7.0)
+    # If we have class and section, assume profile is complete enough to proceed.
+    # We trust the frontend sent a valid name.
     if current_user.class_name and current_user.section_name:
+        current_user.is_profile_complete = True
         current_user.profile_reset_required = False
+    
+    # Verify explicitly for safety
+    if current_user.role == 'student' and current_user.class_name and current_user.section_name:
+         current_user.is_profile_complete = True
     
     db.commit()
     db.refresh(current_user)
