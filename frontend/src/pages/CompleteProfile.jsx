@@ -7,13 +7,24 @@ const CompleteProfile = () => {
     const { user, refreshUser } = useAuth()
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
-    // Initialize state ONCE on mount using lazy initialization
+    // Initialize with lazy state to catch early data
     const [formData, setFormData] = useState(() => ({
         full_name: user?.full_name || user?.username || '',
         class_name: user?.class_name || '',
         section_name: user?.section_name || ''
     }))
     const [error, setError] = useState('')
+
+    // Safe sync for async user data loading
+    useEffect(() => {
+        if (user) {
+            setFormData(prev => ({
+                full_name: prev.full_name || user.full_name || user.username || '',
+                class_name: prev.class_name || user.class_name || '',
+                section_name: prev.section_name || user.section_name || ''
+            }))
+        }
+    }, [user])
 
 
     const handleSubmit = async (e) => {
@@ -136,6 +147,7 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
+                <div className="text-center text-xs text-gray-300 pb-2">v3.0 - Robust Sync</div>
             </div>
         </div>
     )
