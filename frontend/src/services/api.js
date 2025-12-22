@@ -6,9 +6,9 @@ const API_URL = import.meta.env.VITE_API_URL ?? ''
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Don't set Content-Type here - let Axios set it automatically
+  // For JSON requests, it will use application/json
+  // For FormData requests, it will use multipart/form-data
   withCredentials: true,
 })
 
