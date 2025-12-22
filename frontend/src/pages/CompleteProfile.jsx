@@ -1,4 +1,3 @@
-```javascript
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -81,7 +80,7 @@ const CompleteProfile = () => {
             // Force HARD RELOAD to ensure fresh state from backend
             // This fixes the issue where user is redirected back to /complete-profile
             window.location.href = '/'
-            
+
         } catch (err) {
             console.error('Profile update failed:', err)
             setError(err.response?.data?.detail || 'فشل تحديث البيانات')
@@ -91,7 +90,7 @@ const CompleteProfile = () => {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-6" dir="rtl">
-            
+
             <div className="card w-full max-w-md bg-white shadow-xl z-10">
                 <div className="card-body">
                     <h2 className="card-title justify-center text-2xl mb-2">إكمال الملف الشخصي</h2>
@@ -171,11 +170,10 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-blue-600 pb-2 font-bold" dir="ltr">v6.0 - Force Reload Fix</div>
+                <div className="text-center text-xs text-blue-600 pb-2 font-bold" dir="ltr">v6.1 - Fix Build</div>
             </div>
         </div>
     )
 }
 
 export default CompleteProfile
-```
