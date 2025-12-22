@@ -55,70 +55,71 @@ const ImageSlider = () => {
     }
 
     return (
-        <div className="relative w-full max-w-5xl mx-auto h-[250px] md:h-[350px] rounded-2xl overflow-hidden shadow-2xl my-6 group" dir="rtl">
+        <div className="relative w-full max-w-5xl mx-auto h-[280px] md:h-[400px] rounded-3xl overflow-hidden shadow-2xl my-8 group border border-white/20" dir="rtl">
 
             {/* Slides */}
-            <div
-                className="w-full h-full duration-500 ease-out transition-transform"
-                style={{ transform: `translateX(${currentIndex * 100}%)` }} // Helper for RTL sliding logic usually needs testing, but for full width single slide simple replacement is easier. 
-            // Actually simple translateX might be tricky with RTL. Let's strictly render the active slide with animation/fade instead for simplicity and robustness in RTL.
-            >
-                {/* Easier approach: Render all, translate. For RTL, translateX needs to be positive or logic inverted. 
-                   Let's use a simple Fade/block approach or relative positioning.
-               */}
-            </div>
-
-            {/* Better Implementation: Map and Absolute positioning */}
             {slides.map((slide, index) => (
                 <div
                     key={slide.id}
-                    className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
                 >
-                    {/* Background Gradient */}
+                    {/* Background with Rich Gradient */}
                     <div className={`w-full h-full bg-gradient-to-br ${slide.color} relative overflow-hidden flex items-center justify-center`}>
 
-                        {/* Decorative Background Pattern */}
-                        <div className={`absolute inset-0 ${slide.bgPattern} grid grid-cols-6 gap-2 rotate-12 scale-150`}>
-                            {[...Array(20)].map((_, i) => (
-                                <div key={i} className="w-8 h-8 border border-white rounded-full opacity-20 transform rotate-45"></div>
-                            ))}
+                        {/* Animated Background Shapes */}
+                        <div className="absolute inset-0 overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-pulse"></div>
+                            <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
                         </div>
 
-                        {/* Content */}
-                        <div className="relative z-20 text-center text-white px-4 md:px-12 max-w-3xl">
-                            <div className="mb-4 transform transition-all duration-700 translate-y-0">
-                                <i className={`${slide.icon} text-6xl md:text-8xl drop-shadow-lg animate-bounce-slow`}></i>
+                        {/* Glassmorphism Content Card */}
+                        <div className="relative z-20 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 px-6 md:px-12 w-full max-w-4xl">
+
+                            {/* Icon Container with Glow */}
+                            <div className="relative shrink-0">
+                                <div className="absolute inset-0 bg-white/30 blur-2xl rounded-full scale-110"></div>
+                                <div className="relative w-24 h-24 md:w-32 md:h-32 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105 duration-500">
+                                    <i className={`${slide.icon} text-5xl md:text-7xl text-white drop-shadow-lg`}></i>
+                                </div>
                             </div>
-                            <h2 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-md">{slide.title}</h2>
-                            <p className="text-lg md:text-xl opacity-90 leading-relaxed max-w-xl mx-auto hidden md:block">{slide.description}</p>
-                            {/* Mobile short desc if needed */}
-                            <p className="text-sm opacity-90 leading-relaxed max-w-xl mx-auto md:hidden line-clamp-2">{slide.description}</p>
+
+                            {/* Text Content */}
+                            <div className="text-center md:text-right text-white max-w-lg">
+                                <h2 className="text-3xl md:text-5xl font-bold mb-3 drop-shadow-md tracking-tight">{slide.title}</h2>
+                                <p className="text-lg md:text-xl text-white/90 leading-relaxed font-light hidden md:block border-r-4 border-white/30 pr-4 mt-4">
+                                    {slide.description}
+                                </p>
+                                {/* Mobile Short Desc */}
+                                <p className="text-sm text-white/90 leading-relaxed font-light md:hidden mt-2">
+                                    {slide.description}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
             ))}
 
-            {/* Navigation Arrows */}
-            <button
-                onClick={prevSlide}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-all cursor-pointer group-hover:block hidden md:block"
-            >
-                <i className="fa-solid fa-chevron-right text-2xl"></i>
-            </button>
+            {/* Navigation Arrows - Glass Style */}
             <button
                 onClick={nextSlide}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-all cursor-pointer group-hover:block hidden md:block"
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-white/20 transition-all cursor-pointer group-hover:scale-100 scale-0 md:scale-100"
             >
-                <i className="fa-solid fa-chevron-left text-2xl"></i>
+                <i className="fa-solid fa-chevron-right text-xl"></i>
+            </button>
+            <button
+                onClick={prevSlide}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-white/20 transition-all cursor-pointer group-hover:scale-100 scale-0 md:scale-100"
+            >
+                <i className="fa-solid fa-chevron-left text-xl"></i>
             </button>
 
-            {/* Dot Indicators */}
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2 space-x-reverse">
+            {/* Pagination Indicators */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2 space-x-reverse bg-black/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
                 {slides.map((_, index) => (
                     <button
                         key={index}
                         onClick={() => setCurrentIndex(index)}
-                        className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentIndex ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/80'}`}
+                        className={`transition-all duration-300 rounded-full h-2 ${index === currentIndex ? 'bg-white w-8' : 'bg-white/40 w-2 hover:bg-white/60'}`}
                     ></button>
                 ))}
             </div>
