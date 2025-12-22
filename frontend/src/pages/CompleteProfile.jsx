@@ -2,22 +2,55 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
+import ImageSlider from '../components/common/ImageSlider'
 
 const CompleteProfile = () => {
     const { user, refreshUser } = useAuth()
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
-    // Initialize state ONLY ONCE. No background updates will touch this.
-    const [formData, setFormData] = useState(() => ({
-        full_name: user?.full_name || user?.username || '',
-        class_name: user?.class_name || '',
-        section_name: user?.section_name || ''
-    }))
     const [error, setError] = useState('')
 
-    // Removed useEffect to preventing ANY background resets
+    // Initialize state from LocalStorage (Priority 1) or User (Priority 2)
+    const [formData, setFormData] = useState(() => {
+        try {
+            const saved = localStorage.getItem('profile_autosave_v5')
+            if (saved) {
+                return JSON.parse(saved)
+            }
+        } catch (e) {
+            console.error('Failed to load saved form', e)
+        }
 
+        return {
+            full_name: user?.full_name || user?.username || '',
+            class_name: user?.class_name || '',
+            section_name: user?.section_name || ''
+        }
+    })
 
+    // Safe sync: Only update from user if LocalStorage was empty and user data just arrived
+    useEffect(() => {
+        const saved = localStorage.getItem('profile_autosave_v5')
+        if (!saved && user) {
+            setFormData(prev => ({
+                full_name: prev.full_name || user.full_name || user.username || '',
+                class_name: prev.class_name || user.class_name || '',
+                section_name: prev.section_name || user.section_name || ''
+            }))
+        }
+    }, [user])
+
+    // AutoSave to LocalStorage on every change
+    useEffect(() => {
+        localStorage.setItem('profile_autosave_v5', JSON.stringify(formData))
+    }, [formData])
+
+    // Redirect if already complete
+    useEffect(() => {
+        if (user?.is_profile_complete) {
+            navigate('/')
+        }
+    }, [user, navigate])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -37,6 +70,9 @@ const CompleteProfile = () => {
 
             await api.put('/api/users/me', submitData)
 
+            // Clear autosave on success
+            localStorage.removeItem('profile_autosave_v5')
+
             // Update global user state
             if (refreshUser) {
                 await refreshUser()
@@ -51,16 +87,15 @@ const CompleteProfile = () => {
         }
     }
 
-    // If user is already complete, redirect home
-    useEffect(() => {
-        if (user?.is_profile_complete) {
-            navigate('/')
-        }
-    }, [user, navigate])
-
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            <div className="card w-full max-w-md bg-white shadow-xl">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-6" dir="rtl">
+
+            {/* Added Slider as requested */}
+            <div className="w-full max-w-4xl px-4 animate-fade-in">
+                <ImageSlider />
+            </div>
+
+            <div className="card w-full max-w-md bg-white shadow-xl z-10">
                 <div className="card-body">
                     <h2 className="card-title justify-center text-2xl mb-2">إكمال الملف الشخصي</h2>
                     <p className="text-center text-gray-500 mb-6">يرجى إكمال بياناتك للمتابعة</p>
@@ -139,7 +174,7 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-gray-300 pb-2">v4.0 - No Background Sync</div>
+                <div className="text-center text-xs text-green-600 pb-2 font-bold" dir="ltr">v5.0 - AutoSave Enabled</div>
             </div>
         </div>
     )
