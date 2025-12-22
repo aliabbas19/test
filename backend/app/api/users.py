@@ -14,10 +14,21 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 @router.get("/me", response_model=UserSchema)
+@router.get("/me", response_model=UserSchema)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ):
-    """Get current user information"""
+    """Get current user information with self-healing profile check"""
+    # SELF-HEALING: If user has class/section but flag is False, fix it now.
+    if not current_user.is_profile_complete and current_user.class_name and current_user.section_name:
+        current_user.is_profile_complete = True
+        current_user.profile_reset_required = False
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+        print(f"DEBUG: Self-healed profile for user {current_user.username}")
+
     return current_user
 
 
