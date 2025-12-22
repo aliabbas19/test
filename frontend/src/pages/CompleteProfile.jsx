@@ -3,15 +3,16 @@ import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 
 const CompleteProfile = () => {
-    const { user } = useAuth()
+    const { user, refreshUser } = useAuth()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
+    const [debugInfo, setDebugInfo] = useState('')
 
     // Initialize state from LocalStorage (Priority 1) or User (Priority 2)
     const [formData, setFormData] = useState(() => {
         try {
-            const saved = localStorage.getItem('profile_autosave_v7')
+            const saved = localStorage.getItem('profile_autosave_v8')
             if (saved) {
                 return JSON.parse(saved)
             }
@@ -28,7 +29,7 @@ const CompleteProfile = () => {
 
     // Safe sync: Only update from user if LocalStorage was empty and user data just arrived
     useEffect(() => {
-        const saved = localStorage.getItem('profile_autosave_v7')
+        const saved = localStorage.getItem('profile_autosave_v8')
         if (!saved && user) {
             setFormData(prev => ({
                 full_name: prev.full_name || user.full_name || user.username || '',
@@ -40,7 +41,7 @@ const CompleteProfile = () => {
 
     // AutoSave to LocalStorage on every change
     useEffect(() => {
-        localStorage.setItem('profile_autosave_v7', JSON.stringify(formData))
+        localStorage.setItem('profile_autosave_v8', JSON.stringify(formData))
     }, [formData])
 
     // Redirect if already complete (check on mount)
@@ -54,6 +55,7 @@ const CompleteProfile = () => {
         e.preventDefault()
         setError('')
         setSuccess(false)
+        setDebugInfo('')
 
         if (!formData.class_name || !formData.section_name) {
             setError('يرجى اختيار الصف والشعبة')
@@ -61,31 +63,43 @@ const CompleteProfile = () => {
         }
 
         setLoading(true)
+        setDebugInfo('جاري الإرسال...')
+
         try {
             const submitData = new FormData()
-            submitData.append('full_name', formData.full_name)
+            submitData.append('full_name', formData.full_name || user?.username || 'Student')
             submitData.append('class_name', formData.class_name)
             submitData.append('section_name', formData.section_name)
 
+            setDebugInfo('تم إنشاء البيانات، جاري الإرسال للسيرفر...')
+
             const response = await api.put('/api/users/me', submitData)
 
-            // Log the response to debug
+            setDebugInfo(`استجابة السيرفر: ${JSON.stringify(response.data?.is_profile_complete)}`)
             console.log('Profile update response:', response.data)
 
             // Clear autosave on success
-            localStorage.removeItem('profile_autosave_v7')
+            localStorage.removeItem('profile_autosave_v8')
 
             // Show success message
             setSuccess(true)
+            setDebugInfo('تم الحفظ! جاري التحويل...')
+
+            // Refresh user data first
+            if (refreshUser) {
+                await refreshUser()
+            }
 
             // Wait a moment for backend to fully commit, then hard reload
             setTimeout(() => {
                 window.location.href = '/'
-            }, 500)
+            }, 1000)
 
         } catch (err) {
             console.error('Profile update failed:', err)
-            setError(err.response?.data?.detail || 'فشل تحديث البيانات')
+            const errorMessage = err.response?.data?.detail || err.message || 'فشل تحديث البيانات'
+            setError(errorMessage)
+            setDebugInfo(`خطأ: ${errorMessage} | Status: ${err.response?.status || 'N/A'}`)
             setLoading(false)
         }
     }
@@ -107,6 +121,12 @@ const CompleteProfile = () => {
                     {success && (
                         <div className="alert alert-success mb-4 text-sm">
                             <span>تم الحفظ بنجاح! جاري التحويل...</span>
+                        </div>
+                    )}
+
+                    {debugInfo && (
+                        <div className="text-xs text-gray-400 mb-2 text-center" dir="ltr">
+                            {debugInfo}
                         </div>
                     )}
 
@@ -178,7 +198,7 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-purple-600 pb-2 font-bold" dir="ltr">v7.0 - Delayed Redirect</div>
+                <div className="text-center text-xs text-orange-600 pb-2 font-bold" dir="ltr">v8.0 - Debug Mode</div>
             </div>
         </div>
     )
