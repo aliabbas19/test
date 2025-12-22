@@ -91,8 +91,16 @@ async def upload_video(
         # Generate unique filename for local storage
         timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
         safe_filename = secure_filename_arabic(video_file.filename)
-        local_filename = f"{current_user.id}_{timestamp}_{safe_filename}"
-        local_path = os.path.join(VIDEO_UPLOAD_DIR, local_filename)
+        
+        # Store in UPLOAD_FOLDER/videos/{user_id}/ for correct serving
+        video_dir = os.path.join(settings.UPLOAD_FOLDER, "videos", str(current_user.id))
+        os.makedirs(video_dir, exist_ok=True)
+        
+        local_filename = f"{timestamp}_{safe_filename}"
+        local_path = os.path.join(video_dir, local_filename)
+        
+        # Relative path for database (used by get_file_url)
+        relative_path = f"videos/{current_user.id}/{local_filename}"
         
         # Move temp file to permanent location
         shutil.move(temp_path, local_path)
@@ -101,7 +109,7 @@ async def upload_video(
         is_approved = current_user.role == 'admin'
         video = Video(
             title=title,
-            filepath=local_path,
+            filepath=relative_path,  # Store relative path, not absolute
             user_id=current_user.id,
             video_type=video_type,
             is_approved=is_approved,

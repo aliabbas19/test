@@ -7,12 +7,10 @@ const CompleteProfile = () => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
-    const [debugInfo, setDebugInfo] = useState('')
 
-    // Initialize state from LocalStorage (Priority 1) or User (Priority 2)
     const [formData, setFormData] = useState(() => {
         try {
-            const saved = localStorage.getItem('profile_autosave_v8')
+            const saved = localStorage.getItem('profile_autosave')
             if (saved) {
                 return JSON.parse(saved)
             }
@@ -27,9 +25,8 @@ const CompleteProfile = () => {
         }
     })
 
-    // Safe sync: Only update from user if LocalStorage was empty and user data just arrived
     useEffect(() => {
-        const saved = localStorage.getItem('profile_autosave_v8')
+        const saved = localStorage.getItem('profile_autosave')
         if (!saved && user) {
             setFormData(prev => ({
                 full_name: prev.full_name || user.full_name || user.username || '',
@@ -39,12 +36,10 @@ const CompleteProfile = () => {
         }
     }, [user])
 
-    // AutoSave to LocalStorage on every change
     useEffect(() => {
-        localStorage.setItem('profile_autosave_v8', JSON.stringify(formData))
+        localStorage.setItem('profile_autosave', JSON.stringify(formData))
     }, [formData])
 
-    // Redirect if already complete (check on mount)
     useEffect(() => {
         if (user?.is_profile_complete) {
             window.location.href = '/'
@@ -55,7 +50,6 @@ const CompleteProfile = () => {
         e.preventDefault()
         setError('')
         setSuccess(false)
-        setDebugInfo('')
 
         if (!formData.class_name || !formData.section_name) {
             setError('يرجى اختيار الصف والشعبة')
@@ -63,51 +57,35 @@ const CompleteProfile = () => {
         }
 
         setLoading(true)
-        setDebugInfo('جاري الإرسال...')
-
         try {
             const submitData = new FormData()
             submitData.append('full_name', formData.full_name || user?.username || 'Student')
             submitData.append('class_name', formData.class_name)
             submitData.append('section_name', formData.section_name)
 
-            setDebugInfo('تم إنشاء البيانات، جاري الإرسال للسيرفر...')
+            await api.put('/api/users/me', submitData)
 
-            const response = await api.put('/api/users/me', submitData)
-
-            setDebugInfo(`استجابة السيرفر: ${JSON.stringify(response.data?.is_profile_complete)}`)
-            console.log('Profile update response:', response.data)
-
-            // Clear autosave on success
-            localStorage.removeItem('profile_autosave_v8')
-
-            // Show success message
+            localStorage.removeItem('profile_autosave')
             setSuccess(true)
-            setDebugInfo('تم الحفظ! جاري التحويل...')
 
-            // Refresh user data first
             if (refreshUser) {
                 await refreshUser()
             }
 
-            // Wait a moment for backend to fully commit, then hard reload
             setTimeout(() => {
                 window.location.href = '/'
-            }, 1000)
+            }, 500)
 
         } catch (err) {
             console.error('Profile update failed:', err)
-            const errorMessage = err.response?.data?.detail || err.message || 'فشل تحديث البيانات'
-            setError(errorMessage)
-            setDebugInfo(`خطأ: ${errorMessage} | Status: ${err.response?.status || 'N/A'}`)
+            setError(err.response?.data?.detail || 'فشل تحديث البيانات')
             setLoading(false)
         }
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-6" dir="rtl">
-
-            <div className="card w-full max-w-md bg-white shadow-xl z-10">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4" dir="rtl">
+            <div className="card w-full max-w-md bg-white shadow-xl">
                 <div className="card-body">
                     <h2 className="card-title justify-center text-2xl mb-2">إكمال الملف الشخصي</h2>
                     <p className="text-center text-gray-500 mb-6">يرجى إكمال بياناتك للمتابعة</p>
@@ -121,12 +99,6 @@ const CompleteProfile = () => {
                     {success && (
                         <div className="alert alert-success mb-4 text-sm">
                             <span>تم الحفظ بنجاح! جاري التحويل...</span>
-                        </div>
-                    )}
-
-                    {debugInfo && (
-                        <div className="text-xs text-gray-400 mb-2 text-center" dir="ltr">
-                            {debugInfo}
                         </div>
                     )}
 
@@ -198,7 +170,6 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-orange-600 pb-2 font-bold" dir="ltr">v8.0 - Debug Mode</div>
             </div>
         </div>
     )

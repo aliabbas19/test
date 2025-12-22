@@ -112,6 +112,22 @@ const Home = () => {
         </div>
       )}
 
+      {/* Student: Upload Video (with pending approval notice) */}
+      {!isAdmin && (
+        <div className="mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto">
+            <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-gray-800">
+              <i className="fa-solid fa-cloud-arrow-up text-primary"></i> رفع فيديو
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              <i className="fa-solid fa-info-circle ml-1"></i>
+              ملاحظة: سيتم مراجعة الفيديو من قبل المشرف قبل نشره
+            </p>
+            <VideoUpload onUpload={fetchVideos} />
+          </div>
+        </div>
+      )}
+
       {/* Posts Section */}
       {posts.length > 0 && (
         <div className="mb-12">
