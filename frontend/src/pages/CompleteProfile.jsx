@@ -1,8 +1,8 @@
+```javascript
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
-import ImageSlider from '../components/common/ImageSlider'
 
 const CompleteProfile = () => {
     const { user, refreshUser } = useAuth()
@@ -13,7 +13,7 @@ const CompleteProfile = () => {
     // Initialize state from LocalStorage (Priority 1) or User (Priority 2)
     const [formData, setFormData] = useState(() => {
         try {
-            const saved = localStorage.getItem('profile_autosave_v5')
+            const saved = localStorage.getItem('profile_autosave_v6')
             if (saved) {
                 return JSON.parse(saved)
             }
@@ -30,7 +30,7 @@ const CompleteProfile = () => {
 
     // Safe sync: Only update from user if LocalStorage was empty and user data just arrived
     useEffect(() => {
-        const saved = localStorage.getItem('profile_autosave_v5')
+        const saved = localStorage.getItem('profile_autosave_v6')
         if (!saved && user) {
             setFormData(prev => ({
                 full_name: prev.full_name || user.full_name || user.username || '',
@@ -42,7 +42,7 @@ const CompleteProfile = () => {
 
     // AutoSave to LocalStorage on every change
     useEffect(() => {
-        localStorage.setItem('profile_autosave_v5', JSON.stringify(formData))
+        localStorage.setItem('profile_autosave_v6', JSON.stringify(formData))
     }, [formData])
 
     // Redirect if already complete
@@ -71,30 +71,27 @@ const CompleteProfile = () => {
             await api.put('/api/users/me', submitData)
 
             // Clear autosave on success
-            localStorage.removeItem('profile_autosave_v5')
+            localStorage.removeItem('profile_autosave_v6')
 
-            // Update global user state
+            // Update global user state (this might not complete before reload)
             if (refreshUser) {
                 await refreshUser()
             }
 
-            navigate('/')
+            // Force HARD RELOAD to ensure fresh state from backend
+            // This fixes the issue where user is redirected back to /complete-profile
+            window.location.href = '/'
+            
         } catch (err) {
             console.error('Profile update failed:', err)
             setError(err.response?.data?.detail || 'فشل تحديث البيانات')
-        } finally {
             setLoading(false)
         }
     }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-6" dir="rtl">
-
-            {/* Added Slider as requested */}
-            <div className="w-full max-w-4xl px-4 animate-fade-in">
-                <ImageSlider />
-            </div>
-
+            
             <div className="card w-full max-w-md bg-white shadow-xl z-10">
                 <div className="card-body">
                     <h2 className="card-title justify-center text-2xl mb-2">إكمال الملف الشخصي</h2>
@@ -174,10 +171,11 @@ const CompleteProfile = () => {
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-green-600 pb-2 font-bold" dir="ltr">v5.0 - AutoSave Enabled</div>
+                <div className="text-center text-xs text-blue-600 pb-2 font-bold" dir="ltr">v6.0 - Force Reload Fix</div>
             </div>
         </div>
     )
 }
 
 export default CompleteProfile
+```
