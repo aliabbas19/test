@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 
 const CompleteProfile = () => {
-    const { user, refreshUser } = useAuth()
-    const navigate = useNavigate()
+    const { user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [success, setSuccess] = useState(false)
 
     // Initialize state from LocalStorage (Priority 1) or User (Priority 2)
     const [formData, setFormData] = useState(() => {
         try {
-            const saved = localStorage.getItem('profile_autosave_v6')
+            const saved = localStorage.getItem('profile_autosave_v7')
             if (saved) {
                 return JSON.parse(saved)
             }
@@ -29,7 +28,7 @@ const CompleteProfile = () => {
 
     // Safe sync: Only update from user if LocalStorage was empty and user data just arrived
     useEffect(() => {
-        const saved = localStorage.getItem('profile_autosave_v6')
+        const saved = localStorage.getItem('profile_autosave_v7')
         if (!saved && user) {
             setFormData(prev => ({
                 full_name: prev.full_name || user.full_name || user.username || '',
@@ -41,19 +40,20 @@ const CompleteProfile = () => {
 
     // AutoSave to LocalStorage on every change
     useEffect(() => {
-        localStorage.setItem('profile_autosave_v6', JSON.stringify(formData))
+        localStorage.setItem('profile_autosave_v7', JSON.stringify(formData))
     }, [formData])
 
-    // Redirect if already complete
+    // Redirect if already complete (check on mount)
     useEffect(() => {
         if (user?.is_profile_complete) {
-            navigate('/')
+            window.location.href = '/'
         }
-    }, [user, navigate])
+    }, [user])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError('')
+        setSuccess(false)
 
         if (!formData.class_name || !formData.section_name) {
             setError('يرجى اختيار الصف والشعبة')
@@ -67,19 +67,21 @@ const CompleteProfile = () => {
             submitData.append('class_name', formData.class_name)
             submitData.append('section_name', formData.section_name)
 
-            await api.put('/api/users/me', submitData)
+            const response = await api.put('/api/users/me', submitData)
+
+            // Log the response to debug
+            console.log('Profile update response:', response.data)
 
             // Clear autosave on success
-            localStorage.removeItem('profile_autosave_v6')
+            localStorage.removeItem('profile_autosave_v7')
 
-            // Update global user state (this might not complete before reload)
-            if (refreshUser) {
-                await refreshUser()
-            }
+            // Show success message
+            setSuccess(true)
 
-            // Force HARD RELOAD to ensure fresh state from backend
-            // This fixes the issue where user is redirected back to /complete-profile
-            window.location.href = '/'
+            // Wait a moment for backend to fully commit, then hard reload
+            setTimeout(() => {
+                window.location.href = '/'
+            }, 500)
 
         } catch (err) {
             console.error('Profile update failed:', err)
@@ -99,6 +101,12 @@ const CompleteProfile = () => {
                     {error && (
                         <div className="alert alert-error mb-4 text-sm">
                             <span>{error}</span>
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="alert alert-success mb-4 text-sm">
+                            <span>تم الحفظ بنجاح! جاري التحويل...</span>
                         </div>
                     )}
 
@@ -164,13 +172,13 @@ const CompleteProfile = () => {
                         <button
                             type="submit"
                             className="btn btn-primary w-full mt-6"
-                            disabled={loading}
+                            disabled={loading || success}
                         >
-                            {loading ? <span className="loading loading-spinner"></span> : 'حفظ ومتابعة'}
+                            {loading ? <span className="loading loading-spinner"></span> : (success ? 'تم الحفظ ✓' : 'حفظ ومتابعة')}
                         </button>
                     </form>
                 </div>
-                <div className="text-center text-xs text-blue-600 pb-2 font-bold" dir="ltr">v6.1 - Fix Build</div>
+                <div className="text-center text-xs text-purple-600 pb-2 font-bold" dir="ltr">v7.0 - Delayed Redirect</div>
             </div>
         </div>
     )
