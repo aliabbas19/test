@@ -57,7 +57,7 @@ services:
       - ./backend/uploads:/app/uploads
       - ./data/uploads:/app/data/uploads
       - hls_data:/app/hls # HLS output files
-      - video_uploads:/app/videos # Uploaded source videos
+      - video_uploads:/app/data/uploads/videos # Videos stored in uploads folder
     environment:
       DATABASE_URL: postgresql://basamaljanaby:${POSTGRES_PASSWORD:-changeme}@postgres:5432/basamaljanaby
       SECRET_KEY: ${SECRET_KEY:-production-secret-key-change-this}

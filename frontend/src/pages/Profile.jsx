@@ -11,6 +11,7 @@ const Profile = () => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
+  const [badgeStats, setBadgeStats] = useState(null)
   const [formData, setFormData] = useState({
     full_name: '',
     address: '',
@@ -24,6 +25,12 @@ const Profile = () => {
   useEffect(() => {
     fetchProfile()
   }, [username])
+
+  useEffect(() => {
+    if (user && user.role === 'student') {
+      fetchBadgeStats()
+    }
+  }, [user])
 
   const fetchProfile = async () => {
     try {
@@ -45,6 +52,15 @@ const Profile = () => {
     }
   }
 
+  const fetchBadgeStats = async () => {
+    try {
+      const response = await api.get(`/api/badges/user/${user.id}`)
+      setBadgeStats(response.data)
+    } catch (error) {
+      console.error('Failed to fetch badge stats:', error)
+    }
+  }
+
   // Handle file selection
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -58,14 +74,12 @@ const Profile = () => {
     try {
       const data = new FormData()
       Object.keys(formData).forEach(key => {
-        data.append(key, formData[key])
+        if (formData[key] !== undefined && formData[key] !== null) {
+          data.append(key, formData[key])
+        }
       })
 
-      await api.put('/api/users/me', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      await api.put('/api/users/me', data)
       setIsEditing(false)
       fetchProfile()
     } catch (error) {
@@ -75,6 +89,8 @@ const Profile = () => {
   }
 
   const isOwnProfile = currentUser?.username === username
+  const isAdmin = user?.role === 'admin'
+  const isStudent = user?.role === 'student'
 
   if (loading) {
     return (
@@ -121,20 +137,27 @@ const Profile = () => {
                   </div>
                 </div>
                 <div>
-                  <h2 className={`text-3xl font-bold mb-2 ${user.role === 'admin' ? 'admin-username-gradient' : 'text-gray-800'}`}>
-                    {user.role === 'admin' && (
+                  <h2 className={`text-3xl font-bold mb-2 ${isAdmin ? 'admin-username-gradient' : 'text-gray-800'}`}>
+                    {isAdmin && (
                       <i className="fa-solid fa-crown admin-crown-icon"></i>
                     )}
                     {user.full_name || user.username}
                   </h2>
-                  <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                    <span className="badge badge-primary badge-outline gap-1 p-3">
-                      <i className="fa-solid fa-graduation-cap"></i> {user.class_name || 'غير محدد'}
+                  {isStudent && (
+                    <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                      <span className="badge badge-primary badge-outline gap-1 p-3">
+                        <i className="fa-solid fa-graduation-cap"></i> {user.class_name || 'غير محدد'}
+                      </span>
+                      <span className="badge badge-secondary badge-outline gap-1 p-3">
+                        <i className="fa-solid fa-layer-group"></i> {user.section_name || 'غير محدد'}
+                      </span>
+                    </div>
+                  )}
+                  {isAdmin && (
+                    <span className="badge badge-primary gap-1 p-3 text-white">
+                      <i className="fa-solid fa-shield-halved"></i> مشرف
                     </span>
-                    <span className="badge badge-secondary badge-outline gap-1 p-3">
-                      <i className="fa-solid fa-layer-group"></i> {user.section_name || 'غير محدد'}
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
               {isOwnProfile && (
@@ -148,7 +171,83 @@ const Profile = () => {
               )}
             </div>
 
-            {user.profile_reset_required && user.role === 'student' && (
+            {/* Stars and Badges Section - For Students Only */}
+            {isStudent && badgeStats && (
+              <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Total Stars */}
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-xl border border-yellow-200 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-white text-xl">
+                      <i className="fa-solid fa-star"></i>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">إجمالي النجوم</p>
+                      <p className="text-2xl font-bold text-yellow-600">{badgeStats.stats.total_stars}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Champion Status */}
+                <div className={`p-4 rounded-xl border shadow-sm ${badgeStats.stats.is_champion_this_week
+                    ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                    : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-xl ${badgeStats.stats.is_champion_this_week ? 'bg-green-500' : 'bg-blue-400'
+                      }`}>
+                      <i className="fa-solid fa-trophy"></i>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">بطل الأسبوع</p>
+                      {badgeStats.stats.is_champion_this_week ? (
+                        <p className="text-xl font-bold text-green-600">🏆 نعم!</p>
+                      ) : (
+                        <p className="text-lg font-bold text-blue-600">
+                          باقي {badgeStats.stats.stars_to_champion} نجوم
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Superhero Count */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center text-white text-xl">
+                      <i className="fa-solid fa-mask"></i>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">بطل خارق</p>
+                      <p className="text-2xl font-bold text-purple-600">{badgeStats.stats.superhero_count} مرة</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Badges Display */}
+            {isStudent && badgeStats && badgeStats.badges.length > 0 && (
+              <div className="mb-8 bg-white/40 p-4 rounded-xl border border-white/50">
+                <h3 className="font-bold text-gray-700 mb-3">
+                  <i className="fa-solid fa-medal text-yellow-500 mr-2"></i>
+                  الشارات المكتسبة
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {badgeStats.badges.map((badge, index) => (
+                    <span
+                      key={index}
+                      className={`badge gap-1 p-3 text-white ${badge.type === 'superhero' ? 'bg-purple-500' : 'bg-green-500'
+                        }`}
+                    >
+                      <i className={`fa-solid ${badge.type === 'superhero' ? 'fa-mask' : 'fa-trophy'}`}></i>
+                      {badge.type === 'superhero' ? 'بطل خارق' : 'بطل الأسبوع'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {user.profile_reset_required && isStudent && (
               <div className="alert alert-info mb-6 shadow-lg border-2 border-info/20">
                 <i className="fa-solid fa-circle-info text-2xl"></i>
                 <div className="text-right">
@@ -158,7 +257,7 @@ const Profile = () => {
               </div>
             )}
 
-            {!user.is_profile_complete && user.role === 'student' && (
+            {!user.is_profile_complete && isStudent && (
               <div className="alert alert-warning mb-6 shadow-lg border-2 border-warning/20">
                 <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
                 <div>
@@ -171,6 +270,7 @@ const Profile = () => {
             {isEditing && isOwnProfile ? (
               <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in-up">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Name - For all users */}
                   <div className="form-control">
                     <label className="label">
                       <span className="label-text font-bold text-gray-600">الاسم الكامل <span className="text-error">*</span></span>
@@ -183,92 +283,116 @@ const Profile = () => {
                       required
                     />
                   </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">رقم الهاتف <span className="text-error">*</span></span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input input-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.phone_number}
-                      onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-control md:col-span-2">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">العنوان <span className="text-error">*</span></span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input input-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">تحصيل الأب <span className="text-error">*</span></span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input input-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.father_education}
-                      onChange={(e) => setFormData({ ...formData, father_education: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">تحصيل الأم <span className="text-error">*</span></span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input input-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.mother_education}
-                      onChange={(e) => setFormData({ ...formData, mother_education: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">الصف <span className="text-error">*</span></span>
-                    </label>
-                    <select
-                      className="select select-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.class_name}
-                      onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
-                      required
-                    >
-                      <option value="">اختر الصف</option>
-                      <option value="الأول المتوسط">الأول المتوسط</option>
-                      <option value="الثاني المتوسط">الثاني المتوسط</option>
-                      <option value="الثالث المتوسط">الثالث المتوسط</option>
-                      <option value="الرابع الإعدادي">الرابع الإعدادي</option>
-                      <option value="الخامس الإعدادي">الخامس الإعدادي</option>
-                      <option value="السادس الإعدادي">السادس الإعدادي</option>
-                    </select>
-                  </div>
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-bold text-gray-600">الشعبة <span className="text-error">*</span></span>
-                    </label>
-                    <select
-                      className="select select-bordered bg-white/50 focus:bg-white transition-colors"
-                      value={formData.section_name}
-                      onChange={(e) => setFormData({ ...formData, section_name: e.target.value })}
-                      required
-                    >
-                      <option value="">اختر الشعبة</option>
-                      <option value="أ">أ</option>
-                      <option value="ب">ب</option>
-                      <option value="ج">ج</option>
-                      <option value="د">د</option>
-                      <option value="هـ">هـ</option>
-                      <option value="و">و</option>
-                    </select>
-                  </div>
+
+                  {/* Phone - For students only */}
+                  {isStudent && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">رقم الهاتف <span className="text-error">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input input-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.phone_number}
+                        onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Address - For students only */}
+                  {isStudent && (
+                    <div className="form-control md:col-span-2">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">العنوان <span className="text-error">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input input-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Father Education - For students only */}
+                  {isStudent && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">تحصيل الأب <span className="text-error">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input input-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.father_education}
+                        onChange={(e) => setFormData({ ...formData, father_education: e.target.value })}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Mother Education - For students only */}
+                  {isStudent && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">تحصيل الأم <span className="text-error">*</span></span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input input-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.mother_education}
+                        onChange={(e) => setFormData({ ...formData, mother_education: e.target.value })}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Class - For students only */}
+                  {isStudent && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">الصف <span className="text-error">*</span></span>
+                      </label>
+                      <select
+                        className="select select-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.class_name}
+                        onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+                        required
+                      >
+                        <option value="">اختر الصف</option>
+                        <option value="الأول المتوسط">الأول المتوسط</option>
+                        <option value="الثاني المتوسط">الثاني المتوسط</option>
+                        <option value="الثالث المتوسط">الثالث المتوسط</option>
+                        <option value="الرابع الإعدادي">الرابع الإعدادي</option>
+                        <option value="الخامس الإعدادي">الخامس الإعدادي</option>
+                        <option value="السادس الإعدادي">السادس الإعدادي</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Section - For students only */}
+                  {isStudent && (
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-bold text-gray-600">الشعبة <span className="text-error">*</span></span>
+                      </label>
+                      <select
+                        className="select select-bordered bg-white/50 focus:bg-white transition-colors"
+                        value={formData.section_name}
+                        onChange={(e) => setFormData({ ...formData, section_name: e.target.value })}
+                        required
+                      >
+                        <option value="">اختر الشعبة</option>
+                        <option value="أ">أ</option>
+                        <option value="ب">ب</option>
+                        <option value="ج">ج</option>
+                        <option value="د">د</option>
+                        <option value="هـ">هـ</option>
+                        <option value="و">و</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-4 mt-8 pt-4 border-t border-gray-200/50">
                   <button type="submit" className="btn btn-primary px-8 shadow-lg text-white font-bold">
@@ -285,44 +409,55 @@ const Profile = () => {
               </form>
             ) : (
               <div className="bg-white/40 rounded-xl p-6 border border-white/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
-                      <i className="fa-solid fa-phone"></i>
+                {/* Show student details */}
+                {isStudent && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                        <i className="fa-solid fa-phone"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">رقم الهاتف</p>
+                        <p className="font-semibold text-lg">{user.phone_number || 'غير محدد'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">رقم الهاتف</p>
-                      <p className="font-semibold text-lg">{user.phone_number || 'غير محدد'}</p>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                        <i className="fa-solid fa-location-dot"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">العنوان</p>
+                        <p className="font-semibold text-lg">{user.address || 'غير محدد'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                        <i className="fa-solid fa-user-tie"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">تحصيل الأب</p>
+                        <p className="font-semibold text-lg">{user.father_education || 'غير محدد'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                        <i className="fa-solid fa-user-nurse"></i>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">تحصيل الأم</p>
+                        <p className="font-semibold text-lg">{user.mother_education || 'غير محدد'}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
-                      <i className="fa-solid fa-location-dot"></i>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">العنوان</p>
-                      <p className="font-semibold text-lg">{user.address || 'غير محدد'}</p>
-                    </div>
+                )}
+
+                {/* Show admin simple info */}
+                {isAdmin && (
+                  <div className="text-center py-8">
+                    <i className="fa-solid fa-user-shield text-6xl text-primary/30 mb-4"></i>
+                    <p className="text-gray-500">حساب مشرف - يمكنك تعديل الاسم والصورة الشخصية فقط</p>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
-                      <i className="fa-solid fa-user-tie"></i>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">تحصيل الأب</p>
-                      <p className="font-semibold text-lg">{user.father_education || 'غير محدد'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
-                      <i className="fa-solid fa-user-nurse"></i>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">تحصيل الأم</p>
-                      <p className="font-semibold text-lg">{user.mother_education || 'غير محدد'}</p>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>

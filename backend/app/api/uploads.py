@@ -21,9 +21,7 @@ import boto3
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
-# Local video storage directory
-VIDEO_UPLOAD_DIR = "/app/videos"
-os.makedirs(VIDEO_UPLOAD_DIR, exist_ok=True)
+# Videos are now stored in settings.UPLOAD_FOLDER/videos/{user_id}/
 
 
 @router.post("/video")

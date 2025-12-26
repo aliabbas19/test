@@ -3,6 +3,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import VideoPlayer from './VideoPlayer'
 import CommentSection from '../comments/CommentSection'
+import RatingForm from '../ratings/RatingForm'
 
 const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
   const { user, isAdmin } = useAuth()
@@ -12,6 +13,7 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
   const [deleting, setDeleting] = useState(false)
   const [videoTitle, setVideoTitle] = useState(video.title)
   const [videoType, setVideoType] = useState(video.video_type)
+  const [ratings, setRatings] = useState(video.ratings || [])
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false)
@@ -19,8 +21,14 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
   const [editType, setEditType] = useState(video.video_type)
   const [saving, setSaving] = useState(false)
 
+  // Rating modal state
+  const [showRatingModal, setShowRatingModal] = useState(false)
+
   // Check if current user is the owner
   const isOwner = user?.id === video.user_id
+
+  // Calculate awarded stars count
+  const awardedStars = ratings.filter(r => r.is_awarded).length
 
   // Update state when video prop changes
   useEffect(() => {
@@ -28,7 +36,8 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
     setUserLikes(video.user_likes || false)
     setVideoTitle(video.title)
     setVideoType(video.video_type)
-  }, [video.id, video.likes_count, video.user_likes, video.title, video.video_type])
+    setRatings(video.ratings || [])
+  }, [video.id, video.likes_count, video.user_likes, video.title, video.video_type, video.ratings])
 
   const handleLike = async () => {
     try {
@@ -93,15 +102,33 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
     }
   }
 
+  const handleRatingUpdate = (updatedData) => {
+    // Refresh ratings after update
+    if (updatedData && updatedData.ratings) {
+      setRatings(updatedData.ratings)
+    }
+    // Also trigger parent refresh if available
+    if (onUpdate) onUpdate(video.id, { ...video, ratings: updatedData?.ratings })
+  }
+
   return (
     <>
       <div className="bg-white rounded-xl overflow-hidden mb-6 shadow-md border border-gray-100">
         {/* Video Header */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <h2 className="text-lg font-bold text-gray-800">{videoTitle}</h2>
-          <span className={`badge ${videoType === 'اثرائي' ? 'badge-warning' : 'badge-info'} text-white`}>
-            {videoType}
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Stars count badge */}
+            {awardedStars > 0 && (
+              <span className="badge badge-warning gap-1 text-white">
+                <i className="fa-solid fa-star"></i>
+                {awardedStars}
+              </span>
+            )}
+            <span className={`badge ${videoType === 'اثرائي' ? 'badge-warning' : 'badge-info'} text-white`}>
+              {videoType}
+            </span>
+          </div>
         </div>
 
         {/* Video Player */}
@@ -113,10 +140,10 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
         </div>
 
         {/* Ratings Display */}
-        {video.ratings && video.ratings.length > 0 && (
+        {ratings && ratings.length > 0 && (
           <div className="p-3 bg-gray-50 border-b border-gray-100">
             <div className="flex flex-wrap gap-2">
-              {video.ratings.map((rating) => (
+              {ratings.map((rating) => (
                 <div
                   key={rating.id}
                   className={`badge gap-1 p-3 ${rating.is_awarded ? 'badge-warning text-white shadow-sm' : 'badge-ghost opacity-50'}`}
@@ -148,6 +175,16 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
           </div>
 
           <div className="flex gap-2">
+            {/* Admin Rating Button */}
+            {isAdmin && video.is_approved && (
+              <button
+                onClick={() => setShowRatingModal(true)}
+                className="btn btn-sm btn-warning text-white gap-1"
+              >
+                <i className="fa-solid fa-star"></i> تقييم
+              </button>
+            )}
+
             {/* Admin Edit Button */}
             {isAdmin && (
               <button
@@ -259,6 +296,41 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
                 className="btn btn-ghost"
               >
                 إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rating Modal */}
+      {showRatingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-xl w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">
+                <i className="fa-solid fa-star text-warning ml-2"></i>
+                تقييم الفيديو
+              </h3>
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <RatingForm
+              videoId={video.id}
+              videoType={videoType}
+              onRatingUpdate={handleRatingUpdate}
+            />
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="btn btn-primary"
+              >
+                <i className="fa-solid fa-check ml-1"></i> تم
               </button>
             </div>
           </div>
