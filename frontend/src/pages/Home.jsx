@@ -6,6 +6,7 @@ import PostCard from '../components/posts/PostCard'
 import { useAuth } from '../context/AuthContext'
 
 import ImageSlider from '../components/common/ImageSlider'
+import HallOfFame from '../components/home/HallOfFame'
 
 const Home = () => {
   const { isAdmin } = useAuth()
@@ -82,6 +83,9 @@ const Home = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Image Slider */}
       <ImageSlider />
+
+      {/* Hall of Fame */}
+      <HallOfFame />
 
       {/* Admin: Create Post / Upload Video */}
       {isAdmin && (
