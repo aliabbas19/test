@@ -75,7 +75,14 @@ const Profile = () => {
       const data = new FormData()
       Object.keys(formData).forEach(key => {
         if (formData[key] !== undefined && formData[key] !== null) {
-          data.append(key, formData[key])
+          // Special handling for profile_image: only send if it's a File
+          if (key === 'profile_image') {
+            if (formData[key] instanceof File) {
+              data.append(key, formData[key])
+            }
+          } else {
+            data.append(key, formData[key])
+          }
         }
       })
 
@@ -189,8 +196,8 @@ const Profile = () => {
 
                 {/* Champion Status */}
                 <div className={`p-4 rounded-xl border shadow-sm ${badgeStats.stats.is_champion_this_week
-                    ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
-                    : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+                  ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200'
+                  : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
                   }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-xl ${badgeStats.stats.is_champion_this_week ? 'bg-green-500' : 'bg-blue-400'

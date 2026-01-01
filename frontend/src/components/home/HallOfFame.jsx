@@ -99,7 +99,7 @@ const HallOfFame = () => {
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-gray-800">أبطال الأسبوع</h3>
-                            <p className="text-xs text-gray-500">المتميزون (5 نجمات فأكثر)</p>
+                            <p className="text-xs text-gray-500">المتميزون (4 نجمات فأكثر)</p>
                         </div>
                     </div>
 

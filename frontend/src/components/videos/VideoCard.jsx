@@ -115,19 +115,44 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
     <>
       <div className="bg-white rounded-xl overflow-hidden mb-6 shadow-md border border-gray-100">
         {/* Video Header */}
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h2 className="text-lg font-bold text-gray-800">{videoTitle}</h2>
-          <div className="flex items-center gap-2">
+        <div className={`p-4 border-b border-gray-100 flex justify-between items-start bg-gray-50 ${videoType === 'منهجي' ? 'bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50' : ''}`}>
+          <div className="flex items-center gap-3">
+            {/* Publisher Avatar - optional if available */}
+            {video.publisher_image ? (
+              <div className={`w-10 h-10 rounded-full overflow-hidden border-2 ${videoType === 'منهجي' ? 'border-purple-300 shadow-md' : 'border-gray-200'}`}>
+                <img
+                  src={`${import.meta.env.VITE_API_URL || ''}/data/uploads/${video.publisher_image}`}
+                  alt={video.publisher_name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${videoType === 'منهجي' ? 'bg-purple-100 text-purple-600 border-2 border-purple-200' : 'bg-gray-200 text-gray-500'}`}>
+                <i className="fa-solid fa-user"></i>
+              </div>
+            )}
+
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 leading-tight">{videoTitle}</h2>
+              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                <i className="fa-solid fa-user-pen"></i>
+                <span>{video.publisher_name || 'مسؤول المنصة'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-1">
+            <span className={`badge ${videoType === 'اثرائي' ? 'badge-warning' : 'badge-primary'} text-white shadow-sm`}>
+              {videoType === 'منهجي' && <i className="fa-solid fa-graduation-cap ml-1"></i>}
+              {videoType}
+            </span>
             {/* Stars count badge */}
             {awardedStars > 0 && (
-              <span className="badge badge-warning gap-1 text-white">
-                <i className="fa-solid fa-star"></i>
+              <span className="badge badge-warning gap-1 text-white text-xs">
+                <i className="fa-solid fa-star text-[10px]"></i>
                 {awardedStars}
               </span>
             )}
-            <span className={`badge ${videoType === 'اثرائي' ? 'badge-warning' : 'badge-info'} text-white`}>
-              {videoType}
-            </span>
           </div>
         </div>
 

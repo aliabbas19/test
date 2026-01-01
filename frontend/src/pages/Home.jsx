@@ -67,6 +67,27 @@ const Home = () => {
     }
   }
 
+  const handleDeletePost = async (postId) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المنشور؟')) return
+    try {
+      await api.delete(`/api/posts/${postId}`)
+      fetchPosts()
+    } catch (error) {
+      console.error("Failed to delete post", error)
+      alert('فشل حذف المنشور')
+    }
+  }
+
+  const handleUpdatePost = async (postId, newContent) => {
+    try {
+      await api.put(`/api/posts/${postId}`, { content: newContent })
+      fetchPosts()
+    } catch (error) {
+      console.error("Failed to update post", error)
+      alert('فشل تحديث المنشور')
+    }
+  }
+
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value })
   }
@@ -143,7 +164,12 @@ const Home = () => {
           </div>
           <div className="max-w-3xl mx-auto">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard
+                key={post.id}
+                post={post}
+                onDelete={handleDeletePost}
+                onUpdate={handleUpdatePost}
+              />
             ))}
           </div>
         </div>

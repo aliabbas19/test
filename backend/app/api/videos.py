@@ -75,6 +75,8 @@ async def get_videos(
             "is_archived": video.is_archived,
             "likes_count": likes_count,
             "user_likes": user_likes,
+            "publisher_name": video.user.full_name or video.user.username,
+            "publisher_image": video.user.profile_image,
             "ratings": [
                 {
                     "id": r.id,
@@ -117,6 +119,8 @@ async def get_video(
         "video_type": video.video_type,
         "is_approved": video.is_approved,
         "is_archived": video.is_archived,
+        "publisher_name": video.user.full_name or video.user.username,
+        "publisher_image": video.user.profile_image,
         "ratings": [
             {
                 "id": r.id,

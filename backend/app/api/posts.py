@@ -108,3 +108,36 @@ async def delete_post(
     
     return {"status": "success", "message": "Post deleted"}
 
+
+@router.put("/{post_id}", response_model=PostResponse)
+async def update_post(
+    post_id: int,
+    post_data: PostCreate,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update a post (admin only)"""
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    if not post_data.content.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Post content cannot be empty"
+        )
+    
+    # Update content
+    post.content = post_data.content
+    
+    db.commit()
+    db.refresh(post)
+    
+    return {
+        "id": post.id,
+        "content": post.content,
+        "user_id": post.user_id,
+        "timestamp": post.timestamp.isoformat(),
+        "username": post.user.username,
+        "full_name": post.user.full_name
+    }

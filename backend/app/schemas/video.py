@@ -32,6 +32,8 @@ class Video(VideoBase):
     ratings: Optional[list] = []
     likes_count: Optional[int] = 0
     user_likes: Optional[bool] = False
+    publisher_name: Optional[str] = None
+    publisher_image: Optional[str] = None
     
     class Config:
         from_attributes = True
