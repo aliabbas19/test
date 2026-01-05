@@ -4,8 +4,20 @@ import axios from 'axios'
 // In development, optionally set VITE_API_URL to backend URL
 let API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL ?? '')
 
-// Runtime safety: If we are on the production domain (HTTPS), FORCE relative path
-// This handles cases where build flags might be misconfigured or .env leaked
+// FORCE HTTPS/Relative Override:
+// Regardless of what VITE_API_URL is set to, if we are in a browser environment
+// and the protocol is HTTPS, we MUST NOT use HTTP.
+if (typeof window !== 'undefined') {
+  if (window.location.protocol === 'https:') {
+    // If the configured API_URL is http, kill it and use relative path
+    if (API_URL && API_URL.includes('http:')) {
+      console.warn('Blocking insecure API URL upgrade to relative path');
+      API_URL = '';
+    }
+  }
+}
+
+// Runtime domain check reinforcement
 if (typeof window !== 'undefined' && window.location.hostname.includes('basamaljanaby.com')) {
   API_URL = ''
 }
