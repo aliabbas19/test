@@ -56,9 +56,10 @@ const HallOfFame = () => {
                                             <div className="relative">
                                                 <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-tr from-yellow-300 via-amber-500 to-yellow-300">
                                                     <img
-                                                        src={hero.profile_image ? `${import.meta.env.VITE_API_URL || ''}/data/uploads/${hero.profile_image}` : '/default.png'}
+                                                        src={hero.profile_image ? `${import.meta.env.VITE_API_URL || ''}/data/uploads/${hero.profile_image}` : 'https://ui-avatars.com/api/?name=User&background=random'}
                                                         alt={hero.full_name}
                                                         className="w-full h-full rounded-full object-cover border-2 border-white"
+                                                        onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${hero.full_name}&background=random` }}
                                                     />
                                                 </div>
                                                 <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full border-2 border-white shadow-sm">
@@ -109,9 +110,10 @@ const HallOfFame = () => {
                                 <div className="relative inline-block mb-2">
                                     <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-indigo-400 to-purple-400 group-hover:scale-105 transition-transform duration-300">
                                         <img
-                                            src={hero.profile_image ? `${import.meta.env.VITE_API_URL || ''}/data/uploads/${hero.profile_image}` : '/default.png'}
+                                            src={hero.profile_image ? `${import.meta.env.VITE_API_URL || ''}/data/uploads/${hero.profile_image}` : 'https://ui-avatars.com/api/?name=User&background=random'}
                                             alt={hero.full_name}
                                             className="w-full h-full rounded-full object-cover border-2 border-white"
+                                            onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${hero.full_name}&background=random` }}
                                         />
                                     </div>
                                     <div className="absolute -top-1 -right-1 bg-white rounded-full p-1 shadow-md border border-gray-100">

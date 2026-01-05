@@ -23,26 +23,30 @@ class HeroResponse(BaseModel):
 
 @router.get("/", response_model=List[HeroResponse])
 def get_heroes(db: Session = Depends(get_db)):
-    # Query users with banked stars >= 5, joined with StarBank
-    results = (
-        db.query(User, StarBank)
-        .join(StarBank, User.id == StarBank.user_id)
-        .filter(StarBank.banked_stars >= 4)
-        .order_by(StarBank.banked_stars.desc())
-        .all()
-    )
-    
-    heroes = []
-    for user, bank in results:
-        rank_type = 'superhero' if bank.banked_stars >= 10 else 'hero'
-        heroes.append(HeroResponse(
-            user_id=user.id,
-            full_name=user.full_name or user.username,
-            profile_image=user.profile_image,
-            banked_stars=bank.banked_stars,
-            rank_type=rank_type,
-            class_name=user.class_name,
-            section_name=user.section_name
-        ))
+    try:
+        # Query users with banked stars >= 5, joined with StarBank
+        results = (
+            db.query(User, StarBank)
+            .join(StarBank, User.id == StarBank.user_id)
+            .filter(StarBank.banked_stars >= 4)
+            .order_by(StarBank.banked_stars.desc())
+            .all()
+        )
         
-    return heroes
+        heroes = []
+        for user, bank in results:
+            rank_type = 'superhero' if bank.banked_stars >= 10 else 'hero'
+            heroes.append(HeroResponse(
+                user_id=user.id,
+                full_name=user.full_name or user.username,
+                profile_image=user.profile_image,
+                banked_stars=bank.banked_stars,
+                rank_type=rank_type,
+                class_name=user.class_name,
+                section_name=user.section_name
+            ))
+            
+        return heroes
+    except Exception as e:
+        print(f"Error fetching heroes: {e}")
+        return []

@@ -73,30 +73,37 @@ async def get_user_badges(
         for b in badges
     )
     
-    return {
-        "user_id": user_id,
-        "badges": [
-            {
-                "id": b.id,
-                "type": b.badge_type,
-                "awarded_at": b.awarded_at,
-                "week_start_date": b.week_start_date,
-                "video_id": b.video_id
+    try:
+        total_manhaji_stars = total_manhaji_stars or 0
+        total_ithrai_stars = total_ithrai_stars or 0
+        
+        return {
+            "user_id": user_id,
+            "badges": [
+                {
+                    "id": b.id,
+                    "type": b.badge_type,
+                    "awarded_at": b.awarded_at,
+                    "week_start_date": b.week_start_date,
+                    "video_id": b.video_id
+                }
+                for b in badges
+            ],
+            "stats": {
+                "total_manhaji_stars": total_manhaji_stars,
+                "total_ithrai_stars": total_ithrai_stars,
+                "weekly_stars": weekly_stars,
+                "banked_stars": banked_stars,
+                "total_stars": (total_manhaji_stars) + (total_ithrai_stars),
+                "superhero_count": superhero_count,
+                "champion_count": champion_count,
+                "is_champion_this_week": is_champion_this_week,
+                "stars_to_champion": max(0, 5 - (banked_stars + weekly_stars))
             }
-            for b in badges
-        ],
-        "stats": {
-            "total_manhaji_stars": total_manhaji_stars,
-            "total_ithrai_stars": total_ithrai_stars,
-            "weekly_stars": weekly_stars,
-            "banked_stars": banked_stars,
-            "total_stars": total_manhaji_stars + total_ithrai_stars,
-            "superhero_count": superhero_count,
-            "champion_count": champion_count,
-            "is_champion_this_week": is_champion_this_week,
-            "stars_to_champion": max(0, 5 - (banked_stars + weekly_stars))
         }
-    }
+    except Exception as e:
+        print(f"Error fetching badges stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/champions")

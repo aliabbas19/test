@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // In production, use empty string for relative URLs (same origin)
 // In development, optionally set VITE_API_URL to backend URL
-const API_URL = import.meta.env.VITE_API_URL ?? ''
+const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL ?? '')
 
 const api = axios.create({
   baseURL: API_URL,
