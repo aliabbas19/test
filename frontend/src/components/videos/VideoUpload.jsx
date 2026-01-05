@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import api from '../../services/api'
+import axios from 'axios'
 
 const VideoUpload = ({ onUpload }) => {
   const [title, setTitle] = useState('')
@@ -12,6 +13,11 @@ const VideoUpload = ({ onUpload }) => {
     e.preventDefault()
     if (!file || !title) return
 
+    if (!navigator.onLine) {
+      alert('لا يتوفر اتصال بالإنترنت. يرجى التحقق من اتصالك والمحاولة مرة أخرى.')
+      return
+    }
+
     setUploading(true)
     const formData = new FormData()
     formData.append('title', title)
@@ -19,16 +25,38 @@ const VideoUpload = ({ onUpload }) => {
     formData.append('video_file', file)
 
     try {
-      await api.post('/api/uploads/video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      // 1. Get Presigned URL
+      const presignedResponse = await api.post('/api/uploads/presigned-url', {
+        filename: file.name,
+        file_type: 'video',
+        content_type: file.type,
+        title: title,
+        video_type: videoType
+      })
+
+      const { upload_url, video_id, key } = presignedResponse.data
+
+      // 2. Upload to S3 directly
+      // Use clean axios instance to avoid auth headers
+      await axios.put(upload_url, file, {
+        headers: {
+          'Content-Type': presignedResponse.data.content_type || file.type
+        },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
           )
           setProgress(percentCompleted)
-        },
+        }
       })
 
+      // 3. Notify Backend
+      await api.post('/api/uploads/upload-complete', {
+        video_id: video_id,
+        s3_key: key
+      })
+
+      alert('Video uploaded successfully! Processing started.')
       setTitle('')
       setFile(null)
       setProgress(0)

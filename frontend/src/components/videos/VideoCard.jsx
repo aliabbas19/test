@@ -3,7 +3,9 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import VideoPlayer from './VideoPlayer'
 import CommentSection from '../comments/CommentSection'
+import CommentSection from '../comments/CommentSection'
 import RatingForm from '../ratings/RatingForm'
+import FocusTrap from '../common/FocusTrap'
 
 const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
   const { user, isAdmin } = useAuth()
@@ -124,6 +126,7 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
                   src={`${import.meta.env.VITE_API_URL || ''}/data/uploads/${video.publisher_image}`}
                   alt={video.publisher_name}
                   className="w-full h-full object-cover"
+                  onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${video.publisher_name}&background=random` }}
                 />
               </div>
             ) : (
@@ -257,73 +260,75 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">
-                <i className="fa-solid fa-pen-to-square text-info ml-2"></i>
-                تعديل الفيديو
-              </h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="btn btn-sm btn-circle btn-ghost"
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Title Input */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-bold">عنوان الفيديو</span>
-                </label>
-                <input
-                  type="text"
-                  className="input input-bordered w-full"
-                  placeholder="أدخل عنوان الفيديو"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                />
-              </div>
-
-              {/* Video Type Select */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-bold">نوع الفيديو</span>
-                </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value)}
+          <FocusTrap isActive={true}>
+            <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-2xl" role="dialog" aria-modal="true">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">
+                  <i className="fa-solid fa-pen-to-square text-info ml-2"></i>
+                  تعديل الفيديو
+                </h3>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-sm btn-circle btn-ghost"
                 >
-                  <option value="منهجي">منهجي</option>
-                  <option value="اثرائي">اثرائي</option>
-                </select>
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Title Input */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">عنوان الفيديو</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full"
+                    placeholder="أدخل عنوان الفيديو"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </div>
+
+                {/* Video Type Select */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">نوع الفيديو</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                  >
+                    <option value="منهجي">منهجي</option>
+                    <option value="اثرائي">اثرائي</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving || !editTitle.trim()}
+                  className="btn btn-primary flex-1"
+                >
+                  {saving ? (
+                    <span className="loading loading-spinner"></span>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-check ml-1"></i> حفظ
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-ghost"
+                >
+                  إلغاء
+                </button>
               </div>
             </div>
-
-            <div className="flex gap-2 mt-6">
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving || !editTitle.trim()}
-                className="btn btn-primary flex-1"
-              >
-                {saving ? (
-                  <span className="loading loading-spinner"></span>
-                ) : (
-                  <>
-                    <i className="fa-solid fa-check ml-1"></i> حفظ
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="btn btn-ghost"
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
+          </FocusTrap>
         </div>
       )}
 

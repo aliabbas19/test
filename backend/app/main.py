@@ -91,15 +91,22 @@ try:
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             logger.info("Creating default admin user...")
+            admin_password = os.getenv("ADMIN_PASSWORD")
+            if not admin_password:
+                logger.warning("ADMIN_PASSWORD not set in environment. Generating random secure password.")
+                import secrets
+                admin_password = secrets.token_urlsafe(16)
+                logger.warning(f"GENERATED ADMIN PASSWORD: {admin_password}")
+            
             admin_user = User(
                 username="admin",
-                password=get_password_hash("admin"),
+                password=get_password_hash(admin_password),
                 role="admin",
                 full_name="Administrator"
             )
             db.add(admin_user)
             db.commit()
-            logger.info("Default admin user created (username: admin, password: admin)")
+            logger.info("Default admin user created")
         else:
             logger.info("Admin user already exists")
     except Exception as e:

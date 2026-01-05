@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
@@ -41,10 +41,12 @@ function App() {
             <Route path="conversations" element={<Conversations />} />
 
             {/* Admin Routes */}
-            <Route path="admin/dashboard" element={<AdminDashboard />} />
-            <Route path="admin/videos" element={<VideoReview />} />
-            <Route path="admin/students" element={<Students />} />
-            <Route path="admin/reports" element={<Reports />} />
+            <Route element={<ProtectedRoute requiredRole="admin"><Outlet /></ProtectedRoute>}>
+              <Route path="admin/dashboard" element={<AdminDashboard />} />
+              <Route path="admin/videos" element={<VideoReview />} />
+              <Route path="admin/students" element={<Students />} />
+              <Route path="admin/reports" element={<Reports />} />
+            </Route>
 
             {/* Redirect legacy/root admin paths */}
             <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />

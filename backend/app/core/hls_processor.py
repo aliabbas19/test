@@ -275,33 +275,77 @@ async def process_video_background(
     finally:
         db.close()
     
-    # Transcode to HLS
-    result = await hls_processor.transcode_to_hls(input_path, video_id)
+    # Check if input_path exists locally, if not try to download from S3
+    local_input = input_path
+    downloaded_temp = False
     
-    # Generate thumbnail
-    thumbnail_path = await hls_processor.generate_thumbnail(input_path, video_id)
-    
-    # Update database with results
-    db = db_session_factory()
-    try:
-        video = db.query(Video).filter(Video.id == video_id).first()
-        if video:
-            video.processing_status = result["status"]
-            if result["status"] == "ready":
-                video.hls_path = result["playlist_url"]
-            if thumbnail_path:
-                video.thumbnail_path = f"/hls/{video_id}/thumbnail.jpg"
-            db.commit()
-            logger.info(f"Video {video_id} processing complete: {result['status']}")
-    except Exception as e:
-        logger.error(f"Error updating video after processing: {e}")
-    finally:
-        db.close()
-    
-    # Cleanup source file if requested
-    if cleanup_source and os.path.exists(input_path):
+    if not os.path.exists(input_path):
+        import tempfile
+        from app.core.aws import s3_client, settings
+        
+        logger.info(f"File not found locally: {input_path}. Attempting S3 download...")
+        
         try:
-            os.remove(input_path)
-            logger.info(f"Cleaned up source file: {input_path}")
+            # Create temp file
+            suffix = os.path.splitext(input_path)[1] or '.mp4'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                local_input = tmp.name
+            
+            # Download
+            s3_client.download_file(settings.S3_BUCKET_NAME, input_path, local_input)
+            downloaded_temp = True
+            logger.info(f"Downloaded S3 key {input_path} to {local_input}")
+            
         except Exception as e:
-            logger.warning(f"Failed to cleanup source file: {e}")
+            logger.error(f"Failed to download from S3: {e}")
+            # Fail the video processing
+            db = db_session_factory()
+            try:
+                video = db.query(Video).filter(Video.id == video_id).first()
+                if video:
+                    video.processing_status = "failed"
+                    db.commit()
+            finally:
+                db.close()
+            return
+
+    try:
+        # Transcode to HLS
+        result = await hls_processor.transcode_to_hls(local_input, video_id)
+        
+        # Generate thumbnail
+        thumbnail_path = await hls_processor.generate_thumbnail(local_input, video_id)
+        
+        # Update database with results
+        db = db_session_factory()
+        try:
+            video = db.query(Video).filter(Video.id == video_id).first()
+            if video:
+                video.processing_status = result["status"]
+                if result["status"] == "ready":
+                    video.hls_path = result["playlist_url"]
+                if thumbnail_path:
+                    video.thumbnail_path = f"/hls/{video_id}/thumbnail.jpg"
+                db.commit()
+                logger.info(f"Video {video_id} processing complete: {result['status']}")
+        except Exception as e:
+            logger.error(f"Error updating video after processing: {e}")
+        finally:
+            db.close()
+            
+    finally:
+        # Cleanup temp file if we downloaded it
+        if downloaded_temp and os.path.exists(local_input):
+            try:
+                os.remove(local_input)
+                logger.info(f"Cleaned up temp S3 download: {local_input}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup temp file: {e}")
+        
+        # Cleanup source file if requested AND it was a local original (not S3 download)
+        if cleanup_source and not downloaded_temp and os.path.exists(input_path):
+            try:
+                os.remove(input_path)
+                logger.info(f"Cleaned up source file: {input_path}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup source file: {e}")

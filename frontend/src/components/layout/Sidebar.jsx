@@ -27,7 +27,7 @@ const Sidebar = () => {
                 to={item.path}
                 className={location.pathname === item.path ? 'active' : ''}
               >
-                <span className="text-2xl">{item.icon}</span>
+                <span className="text-2xl ml-3">{item.icon}</span>
                 {item.label}
               </Link>
             </li>

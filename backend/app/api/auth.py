@@ -13,6 +13,7 @@ from app.models.suspension import Suspension
 from app.schemas.auth import Login, Token, AutoLogin, AutoLoginResponse
 from app.core.device import verify_device_binding, bind_device_to_user, get_user_by_token, update_token_last_used
 from app.models.device_binding import DeviceBinding
+from app.api.deps import get_current_active_user
 from app.config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -71,32 +72,21 @@ async def login(
             fingerprint = device_fingerprint if device_fingerprint else 'pending'
             auth_token = bind_device_to_user(db, user.id, fingerprint)
     else:
-        # Student: Enforce device binding (one device only)
+        # Student: Force update device binding (Allow login from new device, invalidate old one)
         if device_fingerprint:
-            is_valid, stored_token = verify_device_binding(db, user.id, device_fingerprint)
-            
-            if is_valid is False:  # Device exists but doesn't match
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه."
-                )
-            
-            # If no binding exists (first login), create one
-            if is_valid is None:
-                auth_token = bind_device_to_user(db, user.id, device_fingerprint)
-            else:
-                auth_token = stored_token
-                update_token_last_used(db, auth_token)
+            # Always update binding to the new device
+            auth_token = bind_device_to_user(db, user.id, device_fingerprint)
         else:
-            # If no fingerprint provided, check if account is already bound
+            # If no fingerprint provided, check if account is already bound (legacy flow)
             binding = db.query(DeviceBinding).filter(DeviceBinding.user_id == user.id).first()
             if binding:
-                # Check if binding is pending (first login case)
+                 # Check if binding is pending (first login case)
                 from app.core.device import hash_device_fingerprint
                 if binding.device_fingerprint == hash_device_fingerprint('pending'):
-                    # Keep existing pending token
-                    auth_token = binding.auth_token
+                     auth_token = binding.auth_token
                 else:
+                    # Require fingerprint for established accounts
+                    pass
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="هذا الحساب مرتبط بجهاز آخر ولا يمكن فتحه."
@@ -154,16 +144,21 @@ async def login(
     }
 
 
+from fastapi import Body, Cookie
+
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
     response: Response,
-    refresh_token: str = None,
+    refresh_token_body: str = Body(None, alias="refresh_token"),
+    refresh_token_cookie: str = Cookie(None, alias="refresh_token"),
     db: Session = Depends(get_db)
 ):
     """
     Refresh access token using refresh token
     """
-    # Get refresh token from cookie if not provided
+    # Get refresh token from body or cookie
+    refresh_token = refresh_token_body or refresh_token_cookie
+
     if refresh_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -224,10 +219,19 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    response: Response,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """
-    Logout endpoint - clears refresh token cookie
+    Logout endpoint - clears refresh token cookie AND invalidates session server-side
     """
+    # Invalidate session by incrementing revocation token
+    # This renders all existing access/refresh tokens invalid
+    current_user.session_revocation_token = (current_user.session_revocation_token or 0) + 1
+    db.commit()
+    
     response.delete_cookie(key="refresh_token")
     return {"message": "Logged out successfully"}
 

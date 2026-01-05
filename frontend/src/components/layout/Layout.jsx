@@ -5,11 +5,14 @@ import ProfileHeader from './ProfileHeader'
 const Layout = () => {
   return (
     <div className="min-h-screen relative overflow-x-hidden">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:right-4 bg-primary text-white px-4 py-2 rounded-md shadow-lg">
+        تخطى إلى المحتوى الرئيسي
+      </a>
       <CircularNav />
       <div className="w-full lg:mr-[80px] p-4 lg:p-8 pb-32 lg:pb-8 transition-all duration-300 overflow-x-hidden">
         <div className="max-w-5xl mx-auto">
           <ProfileHeader />
-          <main className="min-h-[80vh] overflow-x-hidden">
+          <main id="main-content" className="min-h-[80vh] overflow-x-hidden">
             <Outlet />
           </main>
 

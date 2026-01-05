@@ -114,6 +114,31 @@ def generate_presigned_url(s3_key: str, expiration: int = 3600) -> Optional[str]
         return f"/data/uploads/{s3_key}"
 
 
+def generate_presigned_upload_url(s3_key: str, content_type: str, expiration: int = 3600) -> Optional[dict]:
+    """Generate presigned URL for S3 PUT object"""
+    if HAS_AWS_CREDENTIALS:
+        try:
+            # Generate presigned URL for uploading
+            url = s3_client.generate_presigned_url(
+                'put_object',
+                Params={
+                    'Bucket': settings.S3_BUCKET_NAME, 
+                    'Key': s3_key,
+                    'ContentType': content_type
+                },
+                ExpiresIn=expiration
+            )
+            return {"url": url, "method": "PUT"}
+        except ClientError as e:
+            print(f"Error generating presigned upload URL: {e}")
+            return None
+    else:
+        # Local Storage: Return None or error as we can't presign local uploads easily 
+        # without a dedicated endpoint that simulates S3 PUT. 
+        # For now, we assume this is only for AWS mode as requested by user.
+        return None
+
+
 def get_file_url(s3_key: str, use_cloudfront: bool = True) -> Optional[str]:
     """Get file URL (CloudFront, S3 presigned, or Local)"""
     if HAS_AWS_CREDENTIALS:

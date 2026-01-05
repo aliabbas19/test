@@ -52,11 +52,17 @@ api.interceptors.response.use(
           return api(originalRequest)
         }
       } catch (refreshError) {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        console.error('Token refresh failed:', refreshError)
+        localStorage.clear() // Ruthless clearing
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
+    }
+
+    // If 401 and it wasn't a refresh attempt (or we already retried), force logout
+    if (error.response?.status === 401) {
+      localStorage.clear()
+      window.location.href = '/login'
     }
 
     return Promise.reject(error)

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 
 const ImageSlider = () => {
     const [currentIndex, setCurrentIndex] = useState(0)
@@ -38,6 +39,16 @@ const ImageSlider = () => {
         }
     ]
 
+    const { user } = useAuth()
+
+    // Filter slides: Hide GPU (id: 3) for students
+    const visibleSlides = slides.filter(slide => {
+        if (slide.id === 3 && user?.role === 'student') {
+            return false
+        }
+        return true
+    })
+
     // Auto slide
     useEffect(() => {
         const interval = setInterval(() => {
@@ -47,18 +58,20 @@ const ImageSlider = () => {
     }, [currentIndex])
 
     const nextSlide = () => {
-        setCurrentIndex((prev) => (prev + 1) % slides.length)
+        if (visibleSlides.length === 0) return
+        setCurrentIndex((prev) => (prev + 1) % visibleSlides.length)
     }
 
     const prevSlide = () => {
-        setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length)
+        if (visibleSlides.length === 0) return
+        setCurrentIndex((prev) => (prev - 1 + visibleSlides.length) % visibleSlides.length)
     }
 
     return (
         <div className="relative w-full max-w-5xl mx-auto h-[280px] md:h-[400px] rounded-3xl overflow-hidden shadow-2xl my-8 group border border-white/20" dir="rtl">
 
             {/* Slides */}
-            {slides.map((slide, index) => (
+            {visibleSlides.map((slide, index) => (
                 <div
                     key={slide.id}
                     className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
@@ -115,7 +128,7 @@ const ImageSlider = () => {
 
             {/* Pagination Indicators */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30 flex space-x-2 space-x-reverse bg-black/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
-                {slides.map((_, index) => (
+                {visibleSlides.map((_, index) => (
                     <button
                         key={index}
                         onClick={() => setCurrentIndex(index)}

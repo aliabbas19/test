@@ -5,6 +5,8 @@
 @layer base {
   html {
     direction: rtl;
+    text-align: right;
+    /* Default text alignment for RTL */
   }
 
   /* Input styling for light theme */
@@ -12,6 +14,8 @@
   textarea,
   select {
     color: #1f2937 !important;
+    text-align: right;
+    /* Ensure inputs type RTL */
   }
 
   .input,

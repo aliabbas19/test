@@ -25,8 +25,12 @@ export const AuthProvider = ({ children }) => {
     if (authToken && !accessToken) {
       // Try auto-login
       autoLoginApi()
-        .then(() => {
-          fetchUser()
+        .then((data) => {
+          // fetchUser would be redundant if autoLogin returns user data, 
+          // but we'll stick to the pattern or update based on response
+          if (data && data.status === 'success') {
+            fetchUser()
+          }
         })
         .catch(() => {
           // Auto-login failed
@@ -69,9 +73,14 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
+      // CLEAR EVERYTHING
       setUser(null)
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
+      localStorage.removeItem('auth_token') // Clear auth token too
+
+      // Force hard redirect to clear memory states
+      window.location.href = '/login'
     }
   }
 

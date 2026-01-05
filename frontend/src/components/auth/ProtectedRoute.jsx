@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
-const ProtectedRoute = ({ children, requireProfileComplete = false }) => {
+const ProtectedRoute = ({ children, requireProfileComplete = false, requiredRole = null }) => {
   const { isAuthenticated, loading, user } = useAuth()
   const location = useLocation()
 
@@ -22,6 +22,11 @@ const ProtectedRoute = ({ children, requireProfileComplete = false }) => {
     if (!user.is_profile_complete) {
       return <Navigate to="/complete-profile" replace />
     }
+  }
+
+  // Check role requirement
+  if (requiredRole && user?.role !== requiredRole) {
+    return <Navigate to="/" replace />
   }
 
   return children
