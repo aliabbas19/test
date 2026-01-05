@@ -13,13 +13,12 @@ RUN npm cache clean --force && \
 # Copy source code
 COPY . .
 
-# Set API URL for production at BUILD time
-# ARG is available during build, ENV is for runtime
-ARG VITE_API_URL=""
-ENV VITE_API_URL=${VITE_API_URL}
+# Set API URL for production at BUILD time -> REMOVED to rely on api.js runtime strict logic
+# ARG VITE_API_URL=""
+# ENV VITE_API_URL=${VITE_API_URL}
 
-# Build application with the environment variable
-RUN VITE_API_URL="" npm run build
+# Build application
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
