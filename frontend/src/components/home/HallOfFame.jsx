@@ -9,7 +9,7 @@ const HallOfFame = () => {
     useEffect(() => {
         const fetchHeroes = async () => {
             try {
-                const response = await api.get('/api/heroes')
+                const response = await api.get('/api/heroes/')
                 setHeroes(response.data)
             } catch (error) {
                 console.error("Failed to fetch heroes:", error)
