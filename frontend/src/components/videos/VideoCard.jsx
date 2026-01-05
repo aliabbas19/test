@@ -3,7 +3,6 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import VideoPlayer from './VideoPlayer'
 import CommentSection from '../comments/CommentSection'
-import CommentSection from '../comments/CommentSection'
 import RatingForm from '../ratings/RatingForm'
 import FocusTrap from '../common/FocusTrap'
 
