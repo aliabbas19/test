@@ -48,7 +48,7 @@ const ChatWindow = ({
   const fetchMessages = useCallback(async () => {
     if (!partnerId) return
     try {
-      const response = await api.get(`/api/messages/conversation/${partnerId}`)
+      const response = await api.get(`/api/messages/${partnerId}`)
       setMessages(response.data)
 
       // Mark unread messages as read
@@ -160,7 +160,7 @@ const ChatWindow = ({
     } else {
       // Fallback to HTTP
       try {
-        await api.post('/api/messages/send', {
+        await api.post('/api/messages', {
           receiver_id: partnerId,
           content: content
         })
