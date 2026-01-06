@@ -5,7 +5,7 @@ import GroupMessageSender from '../components/messages/GroupMessageSender'
 import { useAuth } from '../context/AuthContext'
 
 const Conversations = () => {
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [showGroupMessage, setShowGroupMessage] = useState(false)
 
@@ -48,7 +48,10 @@ const Conversations = () => {
         <div className="flex-1 bg-white/5 relative">
           {/* Background decorative element */}
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
-          <ChatWindow conversation={selectedConversation} />
+          <ChatWindow
+            conversation={selectedConversation}
+            currentUser={user}
+          />
         </div>
       </div>
     </div>
