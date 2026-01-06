@@ -162,7 +162,8 @@ const ChatWindow = ({
       try {
         await api.post('/api/messages', {
           receiver_id: partnerId,
-          content: content
+          content: content,
+          type: 'user'
         })
         fetchMessages()
       } catch (error) {
