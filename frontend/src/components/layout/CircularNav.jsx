@@ -49,7 +49,7 @@ const CircularNav = () => {
 
                         {user.role === 'student' && (
                             <li>
-                                <NavLink to="/messages" className={getLinkClass} title="الرسائل">
+                                <NavLink to="/conversations" className={getLinkClass} title="الرسائل">
                                     <i className="fa-solid fa-envelope"></i>
                                 </NavLink>
                             </li>
@@ -60,6 +60,11 @@ const CircularNav = () => {
                                 <li>
                                     <NavLink to="/admin/dashboard" className={getLinkClass} title="التحكم">
                                         <i className="fa-solid fa-gauge"></i>
+                                    </NavLink>
+                                </li>
+                                <li>
+                                    <NavLink to="/conversations" className={getLinkClass} title="الرسائل">
+                                        <i className="fa-solid fa-envelope"></i>
                                     </NavLink>
                                 </li>
                                 <li>
