@@ -72,6 +72,14 @@ const AdminDashboard = () => {
           <i className="fa-solid fa-list-check ml-2"></i> المعايير
         </button>
         <button
+          className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'students'
+            ? 'bg-primary text-white shadow-md'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          onClick={() => setActiveTab('students')}
+        >
+          <i className="fa-solid fa-users-gear ml-2"></i> الطلاب
+        </button>
+        <button
           className={`tab tab-lg rounded-lg transition-all font-bold ${activeTab === 'telegram'
             ? 'bg-primary text-white shadow-md'
             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
@@ -141,7 +149,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Removed Students tab rendering here */}
+        {activeTab === 'students' && <div className="animate-fade-in"><StudentManagement /></div>}
         {activeTab === 'criteria' && <div className="animate-fade-in"><CriteriaManagement /></div>}
 
         {activeTab === 'telegram' && <TelegramSettings />}

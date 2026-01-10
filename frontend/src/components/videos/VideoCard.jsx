@@ -15,6 +15,7 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
   const [videoTitle, setVideoTitle] = useState(video.title)
   const [videoType, setVideoType] = useState(video.video_type)
   const [ratings, setRatings] = useState(video.ratings || [])
+  const [isArchived, setIsArchived] = useState(video.is_archived || false)
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false)
@@ -38,7 +39,8 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
     setVideoTitle(video.title)
     setVideoType(video.video_type)
     setRatings(video.ratings || [])
-  }, [video.id, video.likes_count, video.user_likes, video.title, video.video_type, video.ratings])
+    setIsArchived(video.is_archived || false)
+  }, [video.id, video.likes_count, video.user_likes, video.title, video.video_type, video.ratings, video.is_archived])
 
   const handleLike = async () => {
     try {
@@ -56,6 +58,32 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
       if (onApprove) onApprove()
     } catch (error) {
       console.error('Failed to approve video:', error)
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!confirm('هل أنت متأكد من أرشفة هذا الفيديو؟')) return
+    try {
+      await api.post(`/api/videos/${video.id}/archive`)
+      setIsArchived(true)
+      alert('تم أرشفة الفيديو بنجاح')
+      if (onUpdate) onUpdate(video.id, { ...video, is_archived: true })
+    } catch (error) {
+      console.error('Failed to archive video:', error)
+      alert('فشل أرشفة الفيديو')
+    }
+  }
+
+  const handleUnarchive = async () => {
+    if (!confirm('هل أنت متأكد من إلغاء أرشفة هذا الفيديو؟')) return
+    try {
+      await api.post(`/api/videos/${video.id}/unarchive`)
+      setIsArchived(false)
+      alert('تم إلغاء أرشفة الفيديو بنجاح')
+      if (onUpdate) onUpdate(video.id, { ...video, is_archived: false })
+    } catch (error) {
+      console.error('Failed to unarchive video:', error)
+      alert('فشل إلغاء أرشفة الفيديو')
     }
   }
 
@@ -229,6 +257,24 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
                 className="btn btn-sm btn-success text-white gap-1"
               >
                 <i className="fa-solid fa-check"></i> موافقة
+              </button>
+            )}
+
+            {/* Admin Archive/Unarchive Buttons */}
+            {isAdmin && isArchived && (
+              <button
+                onClick={handleUnarchive}
+                className="btn btn-sm btn-warning text-white gap-1"
+              >
+                <i className="fa-solid fa-box-open"></i> استعادة
+              </button>
+            )}
+            {isAdmin && !isArchived && video.is_approved && (
+              <button
+                onClick={handleArchive}
+                className="btn btn-sm btn-secondary text-white gap-1"
+              >
+                <i className="fa-solid fa-box-archive"></i> أرشفة
               </button>
             )}
 

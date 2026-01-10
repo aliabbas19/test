@@ -25,6 +25,8 @@ from app.models.device_binding import DeviceBinding
 from app.models.comment import Comment
 from app.models.video import VideoLike
 from app.models.rating import DynamicVideoRating
+from app.models.post import Post
+from app.models.star_bank import StarBank
 from datetime import datetime, timedelta
 from collections import defaultdict
 from sqlalchemy import and_
@@ -343,23 +345,43 @@ async def start_new_year(
 ):
     """
     Start new school year - marks all students as needing profile reset
-    WARNING: This is a destructive operation
+    WARNING: This is a destructive operation matches legacy app.py behavior
     """
-    # Mark all students as needing profile reset
-    students = db.query(User).filter(User.role == 'student').all()
-    
-    for student in students:
-        student.profile_reset_required = True
-        # Optionally clear class and section
-        # student.class_name = None
-        # student.section_name = None
-    
-    db.commit()
-    
-    return {
-        "status": "success",
-        "message": f"تم بدء سنة دراسية جديدة. {len(students)} طالب يحتاجون لتحديث ملفاتهم الشخصية."
-    }
+    try:
+        # 1. Delete all transient content
+        db.query(Video).delete()
+        db.query(Message).delete()
+        db.query(Comment).delete()
+        db.query(VideoLike).delete()
+        db.query(DynamicVideoRating).delete()
+        db.query(Post).delete()
+        db.query(StarBank).delete()
+        
+        # 2. Reset Student Data
+        students = db.query(User).filter(User.role == 'student').all()
+        for student in students:
+            student.profile_reset_required = True
+            student.class_name = None
+            student.section_name = None
+            student.is_profile_complete = False
+            # Clear legacy stats if any
+            student.session_revocation_token = (student.session_revocation_token or 0) + 1
+        
+        # 3. Clear caches
+        unapproved_cache.clear()
+        
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": f"تم بدء سنة دراسية جديدة بنجاح. تم حذف جميع البيانات (فيديوهات، رسائل، تعليقات) وتصفير بيانات {len(students)} طالب."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"حدث خطأ أثناء بدء السنة الجديدة: {str(e)}"
+        )
 
 
 @router.post("/users/{user_id}/mute")
