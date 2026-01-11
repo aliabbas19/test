@@ -62,7 +62,7 @@ async def get_presigned_upload_url(
     # 3. Generate Presigned URL
     presigned_data = generate_presigned_upload_url(s3_key, request.content_type)
     if not presigned_data:
-        raise HTTPException(status_code=500, detail="Could not generate upload URL (Check AWS Config)")
+        raise HTTPException(status_code=500, detail="AWS_CONFIG_MISSING: Deployment Verification - Please use Direct Upload")
 
     video_id = None
     if request.file_type == 'video':
