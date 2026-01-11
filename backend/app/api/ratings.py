@@ -138,6 +138,13 @@ async def rate_video(
             badge_awarded = 'superhero'
             champion_message = "🦸 أصبح هذا الطالب بطلاً خارقاً!"
     
+    # Update Star Bank (Real-time)
+    try:
+        from app.services.champion_service import update_student_star_bank
+        update_student_star_bank(db, video.user_id)
+    except Exception as e:
+        print(f"Error updating star bank: {e}")
+
     return {
         "video_id": video_id,
         "total_stars": total_stars,

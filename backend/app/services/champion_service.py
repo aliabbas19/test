@@ -180,3 +180,28 @@ def get_week_champions(db: Session, class_name: str = None, section_name: str = 
     
     return champions
 
+
+def update_student_star_bank(db: Session, user_id: int):
+    """
+    Recalculate and update star bank for a specific student (Real-time update)
+    """
+    today = date.today()
+    start_of_week = get_week_start_date_saturday(today)
+    start_of_previous_week = start_of_week - timedelta(days=7)
+    
+    # Get carried stars from previous week
+    carried_stars = 0
+    bank_entry = db.query(StarBank).filter(
+        StarBank.user_id == user_id,
+        StarBank.last_updated_week_start_date == start_of_previous_week
+    ).first()
+    
+    if bank_entry:
+        carried_stars = bank_entry.banked_stars
+    
+    # Get new stars this week
+    new_stars = calculate_weekly_stars(db, user_id, start_of_week)
+    
+    # Update star bank
+    update_star_bank(db, user_id, start_of_week, carried_stars, new_stars)
+    return carried_stars + new_stars

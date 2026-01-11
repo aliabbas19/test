@@ -53,22 +53,22 @@ def upload_file_to_s3(file_content: bytes, s3_key: str, content_type: str) -> bo
             )
             return True
         except ClientError as e:
-            print(f"Error uploading to S3: {e}")
-            return False
-    else:
-        # Local Storage Fallback
-        try:
-            # Construct full local path
-            full_path = os.path.join(settings.UPLOAD_FOLDER, s3_key)
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
-            with open(full_path, "wb") as f:
-                f.write(file_content)
-            return True
-        except Exception as e:
-            print(f"Error saving to local storage: {e}")
-            return False
+            print(f"Error uploading to S3: {e}. Falling back to local storage.")
+            # Fallback to local storage below
+    
+    # Local Storage Fallback (Reached if !HAS_AWS_CREDENTIALS or S3 failed)
+    try:
+        # Construct full local path
+        full_path = os.path.join(settings.UPLOAD_FOLDER, s3_key)
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        
+        with open(full_path, "wb") as f:
+            f.write(file_content)
+        return True
+    except Exception as e:
+        print(f"Error saving to local storage: {e}")
+        return False
 
 
 def delete_file_from_s3(s3_key: str) -> bool:

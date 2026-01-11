@@ -281,8 +281,22 @@ async def process_video_background(
     
     if not os.path.exists(input_path):
         import tempfile
-        from app.core.aws import s3_client, settings
+        from app.core.aws import s3_client, settings, HAS_AWS_CREDENTIALS
         
+        if not HAS_AWS_CREDENTIALS:
+             logger.error(f"File not found locally and no AWS credentials: {input_path}")
+             # Fail the video processing
+             db = db_session_factory()
+             try:
+                 video = db.query(Video).filter(Video.id == video_id).first()
+                 if video:
+                     video.processing_status = "failed"
+                     video.error_message = "File not found locally"
+                     db.commit()
+             finally:
+                 db.close()
+             return
+
         logger.info(f"File not found locally: {input_path}. Attempting S3 download...")
         
         try:

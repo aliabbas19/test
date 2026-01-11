@@ -25,36 +25,53 @@ const VideoUpload = ({ onUpload }) => {
     formData.append('video_file', file)
 
     try {
-      // 1. Get Presigned URL
-      const presignedResponse = await api.post('/api/uploads/presigned-url', {
-        filename: file.name,
-        file_type: 'video',
-        content_type: file.type,
-        title: title,
-        video_type: videoType
-      })
+      // Try Presigned URL flow first (AWS S3)
+      try {
+        const presignedResponse = await api.post('/api/uploads/presigned-url', {
+          filename: file.name,
+          file_type: 'video',
+          content_type: file.type,
+          title: title,
+          video_type: videoType
+        })
 
-      const { upload_url, video_id, key } = presignedResponse.data
+        const { upload_url, video_id, key } = presignedResponse.data
 
-      // 2. Upload to S3 directly
-      // Use clean axios instance to avoid auth headers
-      await axios.put(upload_url, file, {
-        headers: {
-          'Content-Type': presignedResponse.data.content_type || file.type
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          )
-          setProgress(percentCompleted)
-        }
-      })
+        // Upload to S3 directly
+        await axios.put(upload_url, file, {
+          headers: {
+            'Content-Type': presignedResponse.data.content_type || file.type
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            )
+            setProgress(percentCompleted)
+          }
+        })
 
-      // 3. Notify Backend
-      await api.post('/api/uploads/upload-complete', {
-        video_id: video_id,
-        s3_key: key
-      })
+        // Notify Backend
+        await api.post('/api/uploads/upload-complete', {
+          video_id: video_id,
+          s3_key: key
+        })
+      } catch (presignedError) {
+        // If presigned flow fails (e.g. AWS not configured), try direct upload
+        console.warn('Presigned upload failed, falling back to direct upload:', presignedError)
+
+        // Direct Upload Fallback (Local Storage)
+        const response = await api.post('/api/uploads/video', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            )
+            setProgress(percentCompleted)
+          },
+        })
+      }
 
       alert('Video uploaded successfully! Processing started.')
       setTitle('')
