@@ -31,7 +31,7 @@ def get_heroes(db: Session = Depends(get_db)):
         weekly_champions = (
             db.query(User, StarBank)
             .join(StarBank, User.id == StarBank.user_id)
-            .filter(StarBank.banked_stars >= 4)
+            .filter(StarBank.banked_stars >= 5)
             .order_by(StarBank.banked_stars.desc())
             .all()
         )
