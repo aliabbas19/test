@@ -25,55 +25,21 @@ const VideoUpload = ({ onUpload }) => {
     formData.append('video_file', file)
 
     try {
-      // Try Presigned URL flow first (AWS S3)
-      try {
-        const presignedResponse = await api.post('/api/uploads/presigned-url', {
-          filename: file.name,
-          file_type: 'video',
-          content_type: file.type,
-          title: title,
-          video_type: videoType
-        })
+      // Force Direct Upload (Local Storage)
+      // Since we are running fully local as per user request, we skip S3 checks entirely.
+      const response = await api.post('/api/uploads/video', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          )
+          setProgress(percentCompleted)
+        },
+      })
 
-        const { upload_url, video_id, key } = presignedResponse.data
-
-        // Upload to S3 directly
-        await axios.put(upload_url, file, {
-          headers: {
-            'Content-Type': presignedResponse.data.content_type || file.type
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            )
-            setProgress(percentCompleted)
-          }
-        })
-
-        // Notify Backend
-        await api.post('/api/uploads/upload-complete', {
-          video_id: video_id,
-          s3_key: key
-        })
-      } catch (presignedError) {
-        // If presigned flow fails (e.g. AWS not configured), try direct upload
-        console.warn('Presigned upload failed, falling back to direct upload:', presignedError)
-
-        // Direct Upload Fallback (Local Storage)
-        const response = await api.post('/api/uploads/video', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            )
-            setProgress(percentCompleted)
-          },
-        })
-      }
-
-      alert('Video uploaded successfully! Processing started.')
+      alert('تم رفع الفيديو بنجاح! جاري المعالجة للنشر.')
       setTitle('')
       setFile(null)
       setProgress(0)
