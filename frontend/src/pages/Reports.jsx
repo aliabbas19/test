@@ -121,14 +121,26 @@ const Reports = () => {
                     </div>
                   </div>
                   <div className="stat bg-white/40 rounded-xl border border-white/50 text-center py-4">
-                    <div className="stat-title mb-1 text-sm md:text-base">بطل الأسبوع</div>
+                    <div className="stat-title mb-1 text-sm md:text-base">بطل الأسبوع (منهجي)</div>
                     <div className="stat-value text-2xl">
                       {student.weekly_activity?.is_champion ? (
-                        <span className="flex items-center justify-center gap-1">
-                          <i className="fa-solid fa-mask text-purple-600 animate-bounce"></i>
-                          <i className="fa-solid fa-trophy text-yellow-500"></i>
+                        <span className="flex flex-col items-center justify-center gap-1">
+                          <span className="flex items-center gap-1">
+                            <i className="fa-solid fa-trophy text-yellow-500 animate-bounce"></i>
+                            <i className="fa-solid fa-star text-yellow-400"></i>
+                          </span>
+                          <span className="text-sm text-green-600 font-bold">
+                            {student.weekly_activity?.manhaji_stars || 0} نجمة
+                          </span>
                         </span>
-                      ) : '-'}
+                      ) : (
+                        <span className="flex flex-col items-center">
+                          <span className="text-gray-400">-</span>
+                          <span className="text-xs text-gray-400">
+                            {student.weekly_activity?.manhaji_stars || 0}/5 نجوم
+                          </span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

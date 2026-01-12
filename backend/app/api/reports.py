@@ -3,7 +3,7 @@ Reports API routes
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, Integer
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta, date
 from collections import defaultdict
@@ -16,12 +16,32 @@ from app.models.rating import RatingCriterion, DynamicVideoRating
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
+# Threshold for week champion (manhaji stars)
+MANHAJI_CHAMPION_THRESHOLD = 5
+
 
 def get_week_start_date():
-    """Get start date of current week (Monday)"""
+    """Get start date of current week (Saturday - Iraqi week)"""
     today = date.today()
-    days_since_monday = today.weekday()
-    return today - timedelta(days=days_since_monday)
+    # Saturday = 5 in weekday()
+    days_since_saturday = (today.weekday() + 2) % 7
+    return today - timedelta(days=days_since_saturday)
+
+
+def calculate_student_manhaji_stars(db: Session, student_id: int, week_start_dt: datetime) -> int:
+    """Calculate manhaji stars for a student this week"""
+    stars = db.query(func.sum(func.cast(DynamicVideoRating.is_awarded, Integer))).join(
+        Video, DynamicVideoRating.video_id == Video.id
+    ).join(
+        RatingCriterion, DynamicVideoRating.criterion_id == RatingCriterion.id
+    ).filter(
+        RatingCriterion.video_type == 'منهجي',
+        Video.user_id == student_id,
+        Video.timestamp >= week_start_dt,
+        Video.is_approved == True
+    ).scalar()
+    
+    return stars if stars else 0
 
 
 @router.get("/students")
@@ -102,9 +122,6 @@ async def get_students_report(
     week_start = get_week_start_date()
     week_start_dt = datetime.combine(week_start, datetime.min.time())
     
-    # Get champion statuses (simplified - would need full champion logic)
-    champion_statuses = {}
-    
     # Build report data
     report_data = []
     for student in students:
@@ -136,8 +153,9 @@ async def get_students_report(
             Comment.timestamp >= week_start_dt
         ).scalar() or 0
         
-        # Check if champion (simplified)
-        is_champion = champion_statuses.get(student_id) == 'بطل الأسبوع'
+        # Calculate manhaji stars this week for champion status
+        manhaji_stars = calculate_student_manhaji_stars(db, student_id, week_start_dt)
+        is_manhaji_champion = manhaji_stars >= MANHAJI_CHAMPION_THRESHOLD
         
         report_data.append({
             'id': student.id,
@@ -150,7 +168,8 @@ async def get_students_report(
             'weekly_activity': {
                 'uploads': weekly_uploads,
                 'comments': weekly_comments,
-                'is_champion': is_champion
+                'is_champion': is_manhaji_champion,
+                'manhaji_stars': manhaji_stars
             }
         })
     
@@ -160,4 +179,5 @@ async def get_students_report(
         'all_criteria': dict(criteria_by_type),
         'report_data': report_data
     }
+
 
