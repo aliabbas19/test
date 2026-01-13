@@ -14,6 +14,7 @@ from app.schemas.video import Video as VideoSchema
 from app.core.aws import get_file_url, delete_file_from_s3, generate_presigned_url
 from app.core.cache import unapproved_cache
 from app.config import settings
+from app.services.champion_service import calculate_weekly_stars, get_week_start_date_saturday
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 
@@ -52,6 +53,11 @@ async def get_videos(
     
     videos = query.order_by(Video.timestamp.desc()).all()
     
+    # Cache for champion status to avoid repeated queries for same user
+    champion_status_cache = {}
+    week_start = get_week_start_date_saturday()
+    CHAMPION_THRESHOLD = 5
+
     # Add file URLs and likes
     result = []
     for video in videos:
@@ -62,6 +68,13 @@ async def get_videos(
             VideoLike.video_id == video.id,
             VideoLike.user_id == current_user.id
         ).first() is not None
+        
+        # Calculate champion status if not in cache
+        if video.user_id not in champion_status_cache:
+            stars = calculate_weekly_stars(db, video.user_id, week_start)
+            champion_status_cache[video.user_id] = stars >= CHAMPION_THRESHOLD
+            
+        is_manhaji_champion = champion_status_cache[video.user_id]
         
         video_dict = {
             "id": video.id,
@@ -77,6 +90,7 @@ async def get_videos(
             "user_likes": user_likes,
             "publisher_name": video.user.full_name or video.user.username,
             "publisher_image": video.user.profile_image,
+            "is_manhaji_champion": is_manhaji_champion,
             "ratings": [
                 {
                     "id": r.id,
@@ -109,6 +123,10 @@ async def get_video(
     if current_user.role == 'student' and not video.is_approved:
         raise HTTPException(status_code=403, detail="Video not approved")
     
+    week_start = get_week_start_date_saturday()
+    stars = calculate_weekly_stars(db, video.user_id, week_start)
+    is_manhaji_champion = stars >= 5
+
     video_dict = {
         "id": video.id,
         "title": video.title,
@@ -121,6 +139,7 @@ async def get_video(
         "is_archived": video.is_archived,
         "publisher_name": video.user.full_name or video.user.username,
         "publisher_image": video.user.profile_image,
+        "is_manhaji_champion": is_manhaji_champion,
         "ratings": [
             {
                 "id": r.id,

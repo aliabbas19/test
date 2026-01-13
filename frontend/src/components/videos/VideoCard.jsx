@@ -169,12 +169,12 @@ const VideoCard = ({ video, onApprove, onDelete, onUpdate }) => {
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                 <i className="fa-solid fa-user-pen"></i>
                 <span>{video.publisher_name || 'مسؤول المنصة'}</span>
-                {/* عرض عدد النجوم بجانب الاسم */}
-                {awardedStars > 0 && (
-                  <span className={`badge badge-sm gap-1 ${awardedStars >= 5 ? 'badge-success animate-pulse' : awardedStars >= 3 ? 'badge-warning' : 'badge-ghost'} text-white font-bold`}>
-                    <i className="fa-solid fa-star text-[10px]"></i>
-                    {awardedStars} نجمة
-                    {awardedStars >= 5 && <i className="fa-solid fa-trophy text-[10px] mr-1"></i>}
+
+                {/* Manhaji Week Champion Badge */}
+                {video.is_manhaji_champion && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-600 font-bold mr-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-pulse">
+                    <i className="fa-solid fa-trophy text-amber-500"></i>
+                    (بطل الأسبوع)
                   </span>
                 )}
               </div>
