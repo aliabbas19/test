@@ -11,6 +11,10 @@ from app.models.user import User
 from app.models.star_bank import StarBank
 
 
+
+# Fixed threshold for Methodological Champion = 4 stars
+CHAMPION_THRESHOLD = 4
+
 def get_week_start_date_saturday(d: date = None) -> date:
     """
     Get the start date of the week (Saturday)
@@ -132,9 +136,6 @@ def get_week_champions(db: Session, class_name: str = None, section_name: str = 
     today = date.today()
     start_of_week = get_week_start_date_saturday(today)
     start_of_previous_week = start_of_week - timedelta(days=7)
-    
-    # Fixed threshold for Methodological Champion = 4 stars
-    CHAMPION_THRESHOLD = 4
     
     # Get all students
     query = db.query(User).filter(User.role == 'student')

@@ -14,7 +14,7 @@ from app.schemas.video import Video as VideoSchema
 from app.core.aws import get_file_url, delete_file_from_s3, generate_presigned_url
 from app.core.cache import unapproved_cache
 from app.config import settings
-from app.services.champion_service import calculate_weekly_stars, get_week_start_date_saturday
+from app.services.champion_service import calculate_weekly_stars, get_week_start_date_saturday, CHAMPION_THRESHOLD
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 
@@ -56,7 +56,6 @@ async def get_videos(
     # Cache for champion status to avoid repeated queries for same user
     champion_status_cache = {}
     week_start = get_week_start_date_saturday()
-    CHAMPION_THRESHOLD = 5
 
     # Add file URLs and likes
     result = []
@@ -129,7 +128,7 @@ async def get_video(
     
     week_start = get_week_start_date_saturday()
     stars = calculate_weekly_stars(db, video.user_id, week_start)
-    is_manhaji_champion = stars >= 5
+    is_manhaji_champion = stars >= CHAMPION_THRESHOLD
 
     video_dict = {
         "id": video.id,
