@@ -12,7 +12,7 @@ from app.models.video import Video
 from app.models.message import Message
 from app.models.suspension import Suspension
 from app.models.rating import RatingCriterion
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.services.champion_service import get_superhero_champions
 from app.core.security import get_password_hash
 from app.core.telegram import send_telegram_message, send_telegram_document, get_telegram_settings_from_env
@@ -167,6 +167,54 @@ async def suspend_user(
     return {
         "message": f"User suspended for {days} days",
         "end_date": end_date.isoformat()
+    }
+
+
+@router.put("/users/{user_id}")
+async def update_user_by_admin(
+    user_id: int,
+    user_data: UserUpdate,  # Changed from UserCreate to UserUpdate
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update user details by admin"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # 1. Update basic info (username usually shouldn't change to avoid conflicts, but we can allow it if unique)
+    if user_data.username and user_data.username != user.username:
+        existing = db.query(User).filter(User.username == user_data.username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        user.username = user_data.username
+        
+    # 2. Update password if provided
+    if user_data.password:
+        user.password = get_password_hash(user_data.password)
+        
+    # 3. Update other fields
+    user.full_name = user_data.full_name
+    user.role = user_data.role # Be careful allowing role change
+    user.class_name = user_data.class_name
+    user.section_name = user_data.section_name
+    
+    # 4. If class/section set, mark profile as complete
+    if user.class_name and user.section_name:
+        user.is_profile_complete = True
+        user.profile_reset_required = False
+        
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "status": "success",
+        "message": "User updated successfully",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name
+        }
     }
 
 

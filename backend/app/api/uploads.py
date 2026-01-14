@@ -159,23 +159,22 @@ async def upload_video(
             detail="Invalid video type. Must be 'منهجي' or 'اثرائي'"
         )
     
-    # Read file content
-    file_content = await video_file.read()
-    file_size_mb = len(file_content) / (1024 * 1024)
-    
-    # Validate file size
-    if file_size_mb > settings.MAX_UPLOAD_SIZE_MB:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Maximum size: {settings.MAX_UPLOAD_SIZE_MB}MB"
-        )
-    
-    # Save to temporary file for duration check
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video_file.filename)[1]) as temp_file:
-        temp_file.write(file_content)
+    # Create temp file immediately to avoid memory issues
+    suffix = os.path.splitext(video_file.filename)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+        # Stream file to disk (memory efficient)
+        shutil.copyfileobj(video_file.file, temp_file)
         temp_path = temp_file.name
     
     try:
+        # Validate file size
+        file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
+        if file_size_mb > settings.MAX_UPLOAD_SIZE_MB:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size: {settings.MAX_UPLOAD_SIZE_MB}MB"
+            )
+
         # Check video duration
         duration = get_video_duration(temp_path)
         if duration is None:
@@ -186,7 +185,9 @@ async def upload_video(
         
         # Validate duration based on video type
         max_duration = settings.VIDEO_MAX_DURATION_MANHAJI if video_type == 'منهجي' else settings.VIDEO_MAX_DURATION_ITHRAI
-        if duration > max_duration:
+        
+        # Add tolerance (buffer) of 5 seconds to avoid rejecting borderline cases
+        if duration > (max_duration + 5):
             # Clean up and reject
             os.remove(temp_path)
             raise HTTPException(
@@ -247,14 +248,18 @@ async def upload_video(
         }
     
     except HTTPException:
+        # Clean up temp file on HTTP errors
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
         raise
     except Exception as e:
         # Clean up on unexpected error
         if os.path.exists(temp_path):
             os.remove(temp_path)
+        print(f"Upload Critical Error: {e}") # Log to console
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload failed: {str(e)}"
+            detail=f"Upload failed: Server Error"
         )
 
 

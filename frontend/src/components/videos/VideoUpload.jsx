@@ -79,8 +79,8 @@ const VideoUpload = ({ onUpload }) => {
               value={videoType}
               onChange={(e) => setVideoType(e.target.value)}
             >
-              <option value="منهجي">منهجي (60 ثانية)</option>
-              <option value="اثرائي">اثرائي (240 ثانية)</option>
+              <option value="منهجي">منهجي (10 دقائق)</option>
+              <option value="اثرائي">اثرائي (60 دقيقة)</option>
             </select>
           </div>
 

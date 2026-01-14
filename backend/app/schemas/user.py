@@ -30,6 +30,7 @@ class UserUpdate(BaseModel):
     class_name: Optional[str] = None
     section_name: Optional[str] = None
     profile_image: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UserInDB(UserBase):

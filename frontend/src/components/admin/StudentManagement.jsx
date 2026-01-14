@@ -23,6 +23,11 @@ const StudentManagement = () => {
   })
   const [addingStudent, setAddingStudent] = useState(false)
 
+  // حالة تعديل طالب
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingStudent, setEditingStudent] = useState(null)
+  const [updatingStudent, setUpdatingStudent] = useState(false)
+
   useEffect(() => {
     fetchStudents()
   }, [filters])
@@ -158,6 +163,42 @@ const StudentManagement = () => {
     }
   }
 
+  const handleEditClick = (student) => {
+    setEditingStudent({
+      id: student.id,
+      username: student.username,
+      full_name: student.full_name || '',
+      class_name: student.class_name || '',
+      section_name: student.section_name || '',
+      role: student.role,
+      password: '' // Keep empty unless changing
+    })
+    setShowEditModal(true)
+  }
+
+  const handleUpdateStudent = async (e) => {
+    e.preventDefault()
+    setUpdatingStudent(true)
+
+    try {
+      // Filter out empty password to avoid overwriting with empty string
+      const dataToSend = { ...editingStudent }
+      if (!dataToSend.password) {
+        delete dataToSend.password
+      }
+
+      await api.put(`/api/admin/users/${editingStudent.id}`, dataToSend)
+      alert('تم تحديث بيانات المستخدم بنجاح')
+      setShowEditModal(false)
+      fetchStudents()
+    } catch (error) {
+      console.error('Failed to update student:', error)
+      alert(error.response?.data?.detail || 'فشل تحديث بيانات المستخدم')
+    } finally {
+      setUpdatingStudent(false)
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-4">جاري التحميل...</div>
   }
@@ -281,6 +322,128 @@ const StudentManagement = () => {
         </div>
       )}
 
+      {/* Modal تعديل طالب */}
+      {showEditModal && editingStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="glass-effect p-6 rounded-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">
+                <i className="fa-solid fa-user-pen text-info ml-2"></i>
+                تعديل بيانات المستخدم
+              </h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStudent} className="space-y-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">اسم المستخدم (الرمز)</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  value={editingStudent.username}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, username: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold">الاسم الكامل</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  value={editingStudent.full_name}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, full_name: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">الصف</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={editingStudent.class_name}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, class_name: e.target.value })}
+                  >
+                    <option value="">اختر الصف</option>
+                    <option value="الأول المتوسط">الأول المتوسط</option>
+                    <option value="الثاني المتوسط">الثاني المتوسط</option>
+                    <option value="الثالث المتوسط">الثالث المتوسط</option>
+                    <option value="الرابع الإعدادي">الرابع الإعدادي</option>
+                    <option value="الخامس الإعدادي">الخامس الإعدادي</option>
+                    <option value="السادس الإعدادي">السادس الإعدادي</option>
+                  </select>
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-bold">الشعبة</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={editingStudent.section_name}
+                    onChange={(e) => setEditingStudent({ ...editingStudent, section_name: e.target.value })}
+                  >
+                    <option value="">اختر الشعبة</option>
+                    <option value="أ">أ</option>
+                    <option value="ب">ب</option>
+                    <option value="ج">ج</option>
+                    <option value="د">د</option>
+                    <option value="هـ">هـ</option>
+                    <option value="و">و</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-bold text-error">كلمة المرور الجديدة (اتركها فارغة إذا لم ترد التغيير)</span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered input-error w-full"
+                  placeholder="كلمة مرور جديدة"
+                  value={editingStudent.password}
+                  onChange={(e) => setEditingStudent({ ...editingStudent, password: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={updatingStudent}
+                >
+                  {updatingStudent ? (
+                    <span className="loading loading-spinner"></span>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-save ml-1"></i> حفظ التعديلات
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-ghost"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* قسم الفلترة */}
       <div className="glass-effect p-6 rounded-xl mb-6">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -352,6 +515,13 @@ const StudentManagement = () => {
                         data-tip="فك ربط الجهاز"
                       >
                         <i className="fa-solid fa-mobile-screen-button"></i>
+                      </button>
+                      <button
+                        onClick={() => handleEditClick(student)}
+                        className="btn btn-sm btn-info join-item tooltip"
+                        data-tip="تعديل البيانات"
+                      >
+                        <i className="fa-solid fa-pen"></i>
                       </button>
                       <div className="dropdown dropdown-left join-item">
                         <label tabIndex={0} className="btn btn-sm btn-info rounded-none">

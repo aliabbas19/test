@@ -44,8 +44,9 @@ class Settings(BaseSettings):
     UPLOAD_FOLDER: str = "/app/data/uploads"  # Persistent volume path
     
     # Video Limits
-    VIDEO_MAX_DURATION_MANHAJI: int = 60  # seconds
-    VIDEO_MAX_DURATION_ITHRAI: int = 240  # seconds
+    # Video Limits
+    VIDEO_MAX_DURATION_MANHAJI: int = 600  # 10 minutes (was 60s)
+    VIDEO_MAX_DURATION_ITHRAI: int = 3600  # 60 minutes (was 240s)
     
     # Archive
     VIDEO_ARCHIVE_DAYS: int = 7
