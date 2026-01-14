@@ -133,8 +133,8 @@ def get_week_champions(db: Session, class_name: str = None, section_name: str = 
     start_of_week = get_week_start_date_saturday(today)
     start_of_previous_week = start_of_week - timedelta(days=7)
     
-    # Fixed threshold for Methodological Champion = 5 stars
-    CHAMPION_THRESHOLD = 5
+    # Fixed threshold for Methodological Champion = 4 stars
+    CHAMPION_THRESHOLD = 4
     
     # Get all students
     query = db.query(User).filter(User.role == 'student')

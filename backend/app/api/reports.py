@@ -17,7 +17,7 @@ from app.models.rating import RatingCriterion, DynamicVideoRating
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 # Threshold for week champion (manhaji stars)
-MANHAJI_CHAMPION_THRESHOLD = 5
+MANHAJI_CHAMPION_THRESHOLD = 4
 
 
 def get_week_start_date():

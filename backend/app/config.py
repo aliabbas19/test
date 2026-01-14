@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     
     # Video Limits
     # Video Limits
-    VIDEO_MAX_DURATION_MANHAJI: int = 600  # 10 minutes (was 60s)
-    VIDEO_MAX_DURATION_ITHRAI: int = 3600  # 60 minutes (was 240s)
+    VIDEO_MAX_DURATION_MANHAJI: int = 60   # 1 minute (Strict limit as per user request)
+    VIDEO_MAX_DURATION_ITHRAI: int = 240   # 4 minutes
     
     # Archive
     VIDEO_ARCHIVE_DAYS: int = 7
