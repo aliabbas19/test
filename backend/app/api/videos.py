@@ -71,10 +71,14 @@ async def get_videos(
         
         # Calculate champion status if not in cache
         if video.user_id not in champion_status_cache:
-            stars = calculate_weekly_stars(db, video.user_id, week_start)
-            champion_status_cache[video.user_id] = stars >= CHAMPION_THRESHOLD
+            try:
+                stars = calculate_weekly_stars(db, video.user_id, week_start)
+                champion_status_cache[video.user_id] = stars >= CHAMPION_THRESHOLD
+            except Exception as e:
+                print(f"Error calculating stars for user {video.user_id}: {e}")
+                champion_status_cache[video.user_id] = False
             
-        is_manhaji_champion = champion_status_cache[video.user_id]
+        is_manhaji_champion = champion_status_cache.get(video.user_id, False)
         
         video_dict = {
             "id": video.id,

@@ -32,7 +32,7 @@ def calculate_weekly_stars(db: Session, user_id: int, week_start: date) -> int:
     """
     from sqlalchemy import func
     
-    stars = db.query(func.sum(DynamicVideoRating.is_awarded)).join(
+    stars = db.query(func.sum(func.cast(DynamicVideoRating.is_awarded, Integer))).join(
         Video, DynamicVideoRating.video_id == Video.id
     ).join(
         RatingCriterion, DynamicVideoRating.criterion_id == RatingCriterion.id
