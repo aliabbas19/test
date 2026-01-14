@@ -34,6 +34,7 @@ class Video(VideoBase):
     user_likes: Optional[bool] = False
     publisher_name: Optional[str] = None
     publisher_image: Optional[str] = None
+    is_manhaji_champion: Optional[bool] = False
     
     class Config:
         from_attributes = True
