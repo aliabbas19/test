@@ -40,7 +40,7 @@ const HallOfFame = () => {
                                 <i className="fa-solid fa-crown text-3xl text-white animate-bounce-slow"></i>
                             </div>
                             <h2 className="text-3xl lg:text-4xl font-black text-amber-600 drop-shadow-sm font-messiri">
-                                أبـطـال الـشـهـر
+                                الابطال الخارقين
                             </h2>
                             <p className="text-amber-700/80 font-bold mt-2">النخبة المتميزة (10 نجمات فأكثر)</p>
                         </div>
@@ -69,8 +69,9 @@ const HallOfFame = () => {
 
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-lg text-gray-800 truncate mb-1">
-                                                    {hero.full_name}
+                                                <h3 className="font-bold text-lg text-gray-800 truncate mb-1 flex items-center gap-2">
+                                                    <span className="truncate">{hero.full_name}</span>
+                                                    <i className="fa-solid fa-shield-halved text-amber-500 text-lg drop-shadow-sm" title="بطل خارق"></i>
                                                 </h3>
                                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                                     <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200 truncate max-w-[120px]">
